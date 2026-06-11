@@ -4,22 +4,29 @@
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "theme": "chalkboard",
-  "showNames": false,
-  "dataset": "school"
+  "showNames": false
 }/*EDITMODE-END*/;
+
+const defaultTags = () => JSON.parse(JSON.stringify(window.Seatery.TAGS_POOL));
 
 function App() {
   const { Seatery, Solver, Toolbar, Sidebar, Canvas, Inspector,
-          ImportModal, RuleModal, ExportModal, GuestModal,
-          TweaksPanel, useTweaks, TweakSection, TweakRadio, TweakToggle, TweakSelect } = window;
+          ImportModal, RuleModal, ExportModal, GuestModal, TagModal,
+          TweaksPanel, useTweaks, TweakSection, TweakRadio, TweakToggle } = window;
 
   // ----- Tweaks -----
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  // ----- Event selection -----
+  const [eventId, setEventId] = React.useState("school");
+  // Snapshots of each event's working state, so switching back restores it.
+  const eventStatesRef = React.useRef({});
 
   // ----- Core state -----
   const [students, setStudents] = React.useState(() => Seatery.studentsAll);
   const [rules, setRules] = React.useState(() => Seatery.rules);
   const [tables, setTables] = React.useState(() => Seatery.buildTables());
+  const [tags, setTags] = React.useState(defaultTags);
 
   // assignments per month: { monthIndex: { tableId: [studentIds] } }
   const [history, setHistory] = React.useState([]);
@@ -40,6 +47,13 @@ function App() {
   const [exportOpen, setExportOpen] = React.useState(false);
   const [ruleModal, setRuleModal] = React.useState(null); // null | {kind, defaultA}
   const [guestModal, setGuestModal] = React.useState(null); // null | {editingId?}
+  const [tagModal, setTagModal] = React.useState(null); // null | {editingId?}
+
+  // Quick lookup from tag id -> tag definition
+  const tagsIndex = React.useMemo(
+    () => Object.fromEntries(tags.map(tg => [tg.id, tg])),
+    [tags]
+  );
 
   // ----- Listen for global cross-pane selection events -----
   React.useEffect(() => {
@@ -51,30 +65,35 @@ function App() {
   // React to theme tweak
   const themeAttr = t.theme || "chalkboard";
 
-  // React to dataset tweak
-  React.useEffect(() => {
-    if (t.dataset === "wedding") {
-      setStudents(buildWeddingDemo());
-      setRules([]);
+  // ----- Switch event, preserving each event's working state -----
+  const currentEvent = window.SeateryEvents.find(e => e.id === eventId) || window.SeateryEvents[0];
+  function switchEvent(newId) {
+    if (newId === eventId) return;
+    // Snapshot the live state under the current event
+    eventStatesRef.current[eventId] = { students, rules, tables, history, monthIndex, assignments, tags };
+    const saved = eventStatesRef.current[newId];
+    if (saved) {
+      setStudents(saved.students);
+      setRules(saved.rules);
+      setTables(saved.tables);
+      setHistory(saved.history);
+      setMonthIndex(saved.monthIndex);
+      setAssignments(saved.assignments);
+      setTags(saved.tags);
+    } else {
+      const ev = window.SeateryEvents.find(e => e.id === newId);
+      const built = ev.build();
+      setStudents(built.students);
+      setRules(built.rules);
+      setTables(built.tables);
       setHistory([]);
+      setMonthIndex(0);
       setAssignments({});
-      setTables(buildWeddingTables());
-    } else if (t.dataset === "conference") {
-      setStudents(buildConferenceDemo());
-      setRules([]);
-      setHistory([]);
-      setAssignments({});
-      setTables(buildConferenceTables());
-    } else if (t.dataset === "school") {
-      setStudents(Seatery.studentsAll);
-      setRules(Seatery.rules);
-      setHistory([]);
-      setAssignments({});
-      setTables(Seatery.buildTables());
+      setTags(defaultTags());
     }
+    setEventId(newId);
     setSelected(null);
-    // eslint-disable-next-line
-  }, [t.dataset]);
+  }
 
   // Conflicts (live audit)
   const conflicts = React.useMemo(
@@ -97,6 +116,7 @@ function App() {
         students, tables, rules,
         history: history.slice(0, monthIndex),
         seed: 1000 + monthIndex,
+        tagsIndex,
       });
       setAssignments(result.assignments);
       setSolving(false);
@@ -227,6 +247,22 @@ function App() {
     setSelected(null);
   }
 
+  // ----- Custom tags -----
+  function saveTag(tag) {
+    setTags(prev => {
+      const exists = prev.find(x => x.id === tag.id);
+      if (exists) return prev.map(x => x.id === tag.id ? { ...x, ...tag } : x);
+      const id = "tag" + Math.random().toString(36).slice(2, 7);
+      return [...prev, { ...tag, id, custom: true }];
+    });
+    toast(tag.id ? "Tag updated." : `Tag "${tag.label}" added.`);
+  }
+  function deleteTag(id) {
+    setTags(prev => prev.filter(x => x.id !== id));
+    // Strip the tag from every student that had it
+    setStudents(prev => prev.map(s => ({ ...s, tags: (s.tags || []).filter(tg => tg !== id) })));
+  }
+
   // ----- Export -----
   function exportCSV() {
     const placedOf = {};
@@ -263,7 +299,9 @@ function App() {
           onExport={() => setExportOpen(true)}
           onAddRule={() => setRuleModal({ kind: "together" })}
           solving={solving}
-          eventName={t.dataset === "wedding" ? "Park & Lin Wedding" : t.dataset === "conference" ? "DevSummit 2026" : "Maple Ridge Elementary"}
+          events={window.SeateryEvents}
+          currentEventId={eventId}
+          onSelectEvent={switchEvent}
           hasConflicts={conflicts.length}
           onToggleInspector={() => setInspectorOpen(v => !v)}
           inspectorOpen={inspectorOpen}
@@ -274,6 +312,8 @@ function App() {
           rules={rules}
           tables={tables}
           assignments={assignments}
+          tags={tags}
+          tagsIndex={tagsIndex}
           selectedId={selected?.kind === "student" ? selected.id : null}
           onSelect={setSelected}
           searchQuery={searchQuery}
@@ -283,6 +323,9 @@ function App() {
           onAddRule={(kind) => setRuleModal({ kind })}
           onDeleteRule={deleteRule}
           onAddGuest={() => setGuestModal({})}
+          onAddTag={() => setTagModal({})}
+          onEditTag={(id) => setTagModal({ editingId: id })}
+          onDeleteTag={deleteTag}
         />
 
         <Canvas
@@ -312,6 +355,8 @@ function App() {
             conflicts={conflicts}
             history={history}
             monthIndex={monthIndex}
+            tags={tags}
+            tagsIndex={tagsIndex}
             onClearSelection={() => setSelected(null)}
             onUnseat={unseat}
             onAddRule={(kind, defaultA) => setRuleModal({ kind, defaultA })}
@@ -325,14 +370,17 @@ function App() {
         )}
       </div>
 
-      {importOpen && <ImportModal onClose={() => setImportOpen(false)} onImport={importStudents} />}
+      {importOpen && <ImportModal onClose={() => setImportOpen(false)} onImport={importStudents}
+        tags={tags} tagsIndex={tagsIndex} />}
       {exportOpen && <ExportModal onClose={() => setExportOpen(false)} onExportCSV={exportCSV}
         onPrint={() => window.print()} students={students} monthIndex={monthIndex}
         months={Seatery.MONTHS} assignments={assignments} tables={tables} />}
       {ruleModal && <RuleModal onClose={() => setRuleModal(null)} onSave={addRule}
         students={students} defaultKind={ruleModal.kind} defaultA={ruleModal.defaultA} />}
       {guestModal && <GuestModal onClose={() => setGuestModal(null)} onSave={saveGuest}
-        students={students} editingId={guestModal.editingId} />}
+        students={students} editingId={guestModal.editingId} availableTags={tags} />}
+      {tagModal && <TagModal onClose={() => setTagModal(null)} onSave={saveTag}
+        tags={tags} editingId={tagModal.editingId} />}
 
       <div className="toasts">
         {toasts.map(t => <div key={t.id} className="toast">{t.text}</div>)}
@@ -358,101 +406,9 @@ function App() {
             Tables now configure independently — select one to set its shape, seats per side, and rotation.
           </div>
         </TweakSection>
-        <TweakSection label="Dataset">
-          <TweakSelect
-            label="Demo"
-            value={t.dataset}
-            onChange={(v) => setTweak("dataset", v)}
-            options={[
-              { value: "school",     label: "School (150 K-4 students)" },
-              { value: "wedding",    label: "Wedding (120 guests, w/ families)" },
-              { value: "conference", label: "Conference (200 attendees)" },
-            ]}
-          />
-        </TweakSection>
       </TweaksPanel>
     </>
   );
-}
-
-// ===== Demo dataset variants for tweak switching =====
-function buildWeddingDemo() {
-  const rnd = window.Seatery.mulberry32(42);
-  const familyTags = ["bride-side","groom-side","plus-one","kids","vip"];
-  const firsts = ["Sophia","Liam","Noah","Olivia","Ava","Ethan","Mia","Lucas","Emma","Aiden","Ella","Mason","Harper","Logan","Aria","James","Layla","Jackson","Chloe","Sebastian"];
-  const lasts = ["Park","Lin","Chen","Davis","Walker","Reyes","Tanaka","Bhatt","Foster","Cho"];
-  const out = [];
-  for (let i = 0; i < 120; i++) {
-    const fn = firsts[Math.floor(rnd() * firsts.length)];
-    const ln = lasts[Math.floor(rnd() * lasts.length)];
-    const tags = [];
-    if (i < 60) tags.push("bride-side"); else tags.push("groom-side");
-    if (rnd() < 0.2) tags.push("plus-one");
-    if (rnd() < 0.1) tags.push("kids");
-    if (rnd() < 0.07) tags.push("vip");
-    out.push({
-      id: "w" + i, first: fn, last: ln, name: fn + " " + ln,
-      grade: ["K","1","2","3","4"][Math.floor(rnd()*5)], gradeIndex: 0,
-      class: tags[0], teacher: "", tags: [], notes: ""
-    });
-  }
-  return out;
-}
-function buildWeddingTables() {
-  const out = [];
-  const cols = 4, rows = 4;
-  let idx = 1;
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      out.push({
-        id: "wt"+idx, label: String(idx),
-        shape: "round", diameter: 130, roundSeats: 8,
-        x: 300 + c * 280, y: 220 + r * 240, rotation: 0
-      });
-      idx++;
-    }
-  }
-  // Head table on top
-  out.unshift({
-    id: "wt-head", label: "Head",
-    shape: "rect", width: 320, height: 80,
-    sides: { top: 0, right: 0, bottom: 6, left: 0 },
-    x: 740, y: 100, rotation: 0
-  });
-  return out;
-}
-function buildConferenceDemo() {
-  const rnd = window.Seatery.mulberry32(7);
-  const firsts = ["Alex","Sam","Jordan","Taylor","Riley","Casey","Morgan","Avery","Quinn","Reese","Cameron","Drew","Skyler","Devon","Sage"];
-  const lasts = ["Tanaka","Kim","Lee","Wang","Chen","Patel","Sharma","Hansen","Nakamura","Reyes","Singh","Walker"];
-  const out = [];
-  for (let i = 0; i < 200; i++) {
-    out.push({
-      id: "c" + i,
-      first: firsts[Math.floor(rnd()*firsts.length)],
-      last: lasts[Math.floor(rnd()*lasts.length)],
-      name: "", grade: ["K","1","2","3","4"][Math.floor(rnd()*5)],
-      gradeIndex: 0, class: "track", teacher: "", tags: [], notes: ""
-    });
-    out[out.length - 1].name = out[out.length - 1].first + " " + out[out.length - 1].last;
-  }
-  return out;
-}
-function buildConferenceTables() {
-  const out = [];
-  let idx = 1;
-  for (let r = 0; r < 5; r++) {
-    for (let c = 0; c < 5; c++) {
-      out.push({
-        id: "ct"+idx, label: String(idx),
-        shape: "rect", width: 220, height: 90,
-        sides: { top: 4, right: 0, bottom: 4, left: 0 },
-        x: 280 + c * 250, y: 220 + r * 200, rotation: 0,
-      });
-      idx++;
-    }
-  }
-  return out;
 }
 
 // Mount

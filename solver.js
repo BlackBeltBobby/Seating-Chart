@@ -9,7 +9,7 @@
        * memory: minimize repeats of past tablemates across months
    ========================================================================== */
 (function () {
-  const { TAGS_INDEX, ROOM } = window.Seatery;
+  const { ROOM } = window.Seatery;
   const { capacity: tableCapacity, distanceToDoor: distFromDoor } = window.TableGeom;
 
   // ------ utilities ------
@@ -46,7 +46,7 @@
   }
 
   // Score a candidate (table, student) pair
-  function score(student, table, currentSeats, students, rules, pastCounts, room) {
+  function score(student, table, currentSeats, students, rules, pastCounts, room, tagsIndex) {
     const seated = currentSeats[table.id] || [];
     let s = 0;
 
@@ -89,21 +89,23 @@
     else if (myCount === 1) s += 2;
     else if (myCount >= 3) s -= 6 * (myCount - 2);
 
-    // Tag preferences
-    if (student.tags?.includes("allergy")) {
-      // cluster allergy kids — bonus per allergy peer already seated
-      const allergyPeers = seated.filter(sid => students.find(x=>x.id===sid)?.tags?.includes("allergy")).length;
-      s += allergyPeers * 6;
-    }
-    if (student.tags?.includes("access")) {
-      // closer to door is better
-      const d = distFromDoor(table, room);
-      s += Math.max(0, 12 - d / 80);
-    }
-    if (student.tags?.includes("monitor")) {
-      // monitors should spread — penalty if another monitor here
-      const peers = seated.filter(sid => students.find(x=>x.id===sid)?.tags?.includes("monitor")).length;
-      s -= peers * 8;
+    // Tag preferences — driven by each tag's configured behavior.
+    for (const tagId of (student.tags || [])) {
+      const def = tagsIndex && tagsIndex[tagId];
+      if (!def) continue;
+      if (def.behavior === "cluster") {
+        // group same-tag peers together — bonus per peer already seated
+        const peers = seated.filter(sid => students.find(x=>x.id===sid)?.tags?.includes(tagId)).length;
+        s += peers * 6;
+      } else if (def.behavior === "spread") {
+        // one per table when possible — penalty per same-tag peer here
+        const peers = seated.filter(sid => students.find(x=>x.id===sid)?.tags?.includes(tagId)).length;
+        s -= peers * 8;
+      } else if (def.behavior === "door") {
+        // closer to the door is better
+        const d = distFromDoor(table, room);
+        s += Math.max(0, 12 - d / 80);
+      }
     }
 
     // History — minimize past tablemate repeats
@@ -119,10 +121,11 @@
     return s;
   }
 
-  function solve({ students, tables, rules, history = [], seed = Date.now() }) {
+  function solve({ students, tables, rules, history = [], seed = Date.now(), tagsIndex }) {
     if (!students.length || !tables.length) return { assignments: {}, conflicts: [] };
     const rnd = window.Seatery.mulberry32(seed);
     const room = ROOM;
+    const tagIdx = tagsIndex || window.Seatery.TAGS_INDEX;
     const pastCounts = pastPairs(history);
 
     // Pre-seed: place together-pairs first so they can find a table early
@@ -133,9 +136,10 @@
       if (!placedFlag.has(r.a)) { order.push(r.a); placedFlag.add(r.a); }
       if (!placedFlag.has(r.b)) { order.push(r.b); placedFlag.add(r.b); }
     });
-    // Then access-needs (so they get door-side tables)
-    const accessFirst = students.filter(s => !placedFlag.has(s.id) && s.tags?.includes("access"));
-    accessFirst.forEach(s => { order.push(s.id); placedFlag.add(s.id); });
+    // Then door-seeking needs (so they get door-side tables)
+    const doorFirst = students.filter(s => !placedFlag.has(s.id) &&
+      (s.tags || []).some(tg => tagIdx[tg]?.behavior === "door"));
+    doorFirst.forEach(s => { order.push(s.id); placedFlag.add(s.id); });
     // Then everyone else, lightly shuffled
     const rest = shuffle(students.filter(s => !placedFlag.has(s.id)), rnd);
     rest.forEach(s => order.push(s.id));
@@ -153,7 +157,7 @@
       let bestScore = -Infinity;
       // Add tiny random jitter to break ties
       tables.forEach(t => {
-        const sc = score(student, t, seats, students, rules, pastCounts, room) + rnd() * 0.5;
+        const sc = score(student, t, seats, students, rules, pastCounts, room, tagIdx) + rnd() * 0.5;
         if (sc > bestScore) { bestScore = sc; best = t; }
       });
       if (!best || bestScore === -Infinity) {
@@ -206,16 +210,22 @@
   function tableStats(tableId, assignments, students) {
     const ids = assignments[tableId] || [];
     const byGrade = {};
-    let monitors = 0, allergy = 0, access = 0;
+    const byTag = {};
     ids.forEach(sid => {
       const s = students.find(x => x.id === sid);
       if (!s) return;
       byGrade[s.grade] = (byGrade[s.grade] || 0) + 1;
-      if (s.tags?.includes("monitor")) monitors++;
-      if (s.tags?.includes("allergy")) allergy++;
-      if (s.tags?.includes("access")) access++;
+      (s.tags || []).forEach(tg => { byTag[tg] = (byTag[tg] || 0) + 1; });
     });
-    return { count: ids.length, byGrade, monitors, allergy, access };
+    return {
+      count: ids.length,
+      byGrade,
+      byTag,
+      // Back-compat convenience counts for built-in tags
+      monitors: byTag.monitor || 0,
+      allergy: byTag.allergy || 0,
+      access: byTag.access || 0,
+    };
   }
 
   window.Solver = { solve, audit, tableStats, buildPastPairKey, pastPairs };
