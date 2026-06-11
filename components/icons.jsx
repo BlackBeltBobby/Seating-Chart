@@ -1,0 +1,31 @@
+/* Tiny SVG icon set shared across the app */
+const Icon = {
+  Search:    (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" {...p}><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>,
+  Plus:      (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" {...p}><path d="M8 3v10M3 8h10"/></svg>,
+  Minus:     (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" {...p}><path d="M3 8h10"/></svg>,
+  X:         (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" {...p}><path d="m4 4 8 8M12 4l-8 8"/></svg>,
+  Chev:      (p) => <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m4 6 4 4 4-4"/></svg>,
+  ChevLeft:  (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m10 4-4 4 4 4"/></svg>,
+  ChevRight: (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m6 4 4 4-4 4"/></svg>,
+  Upload:    (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M8 11V3m0 0-3 3m3-3 3 3M3 12.5v.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-.5"/></svg>,
+  Download:  (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M8 3v8m0 0-3-3m3 3 3-3M3 12.5v.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-.5"/></svg>,
+  Sparkle:   (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" {...p}><path d="M8 2v3M8 11v3M2 8h3M11 8h3M4 4l2 2M10 10l2 2M12 4l-2 2M6 10l-2 2"/></svg>,
+  Trash:     (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 4.5h10M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M5 4.5l.6 8a1 1 0 0 0 1 .9h2.8a1 1 0 0 0 1-.9l.6-8"/></svg>,
+  User:      (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" {...p}><circle cx="8" cy="6" r="2.5"/><path d="M3 13a5 5 0 0 1 10 0"/></svg>,
+  Users:     (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" {...p}><circle cx="6" cy="6" r="2.2"/><circle cx="11" cy="7" r="1.8"/><path d="M2 13a4 4 0 0 1 8 0M10 13a3 3 0 0 1 4 0"/></svg>,
+  Tag:       (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" {...p}><path d="M8 2 3 3 2 8l6 6 6-6z"/><circle cx="5.5" cy="5.5" r=".9" fill="currentColor"/></svg>,
+  Link:      (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" {...p}><path d="M7 9a3 3 0 0 0 4 0l2-2a3 3 0 1 0-4-4L8 4M9 7a3 3 0 0 0-4 0L3 9a3 3 0 1 0 4 4l1-1"/></svg>,
+  Print:     (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" {...p}><path d="M5 3h6v3H5zM3 6h10v5h-2v3H5v-3H3z"/><circle cx="11.5" cy="8" r=".5" fill="currentColor"/></svg>,
+  Share:     (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="4" cy="8" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><path d="m5.7 7 4.6-2.5M5.7 9l4.6 2.5"/></svg>,
+  Alert:     (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M8 2 2 13h12z"/><path d="M8 6.5v3M8 11.3v.2"/></svg>,
+  Check:     (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m3.5 8.5 3 3 6-7"/></svg>,
+  Settings:  (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" {...p}><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>,
+  Lock:      (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" {...p}><rect x="3.5" y="7" width="9" height="6" rx="1.2"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>,
+  Pin:       (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" {...p}><path d="m9.5 2.5 4 4-2 1-3 3-1 4-5-5 4-1 3-3z"/></svg>,
+  Shuffle:   (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M2 4h2l8 8h2m0-8h-2l-3 3M2 12h2l3-3m4 5 3-3-3-3"/></svg>,
+  Eye:       (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" {...p}><path d="M2 8s2.5-4 6-4 6 4 6 4-2.5 4-6 4-6-4-6-4Z"/><circle cx="8" cy="8" r="1.6"/></svg>,
+  Grid:      (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" {...p}><rect x="2.5" y="2.5" width="4.5" height="4.5"/><rect x="9" y="2.5" width="4.5" height="4.5"/><rect x="2.5" y="9" width="4.5" height="4.5"/><rect x="9" y="9" width="4.5" height="4.5"/></svg>,
+  School:    (p) => <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" {...p}><path d="M8 2 2 5l6 3 6-3-6-3Z"/><path d="M4 6v3.5c0 1.4 1.8 2.5 4 2.5s4-1.1 4-2.5V6"/></svg>,
+};
+
+window.Icon = Icon;
