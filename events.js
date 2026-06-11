@@ -23,6 +23,16 @@
     { id: "bride", label: "Bride", color: "oklch(62% 0.16 350)" },
     { id: "groom", label: "Groom", color: "oklch(60% 0.14 250)" },
   ];
+  // Wedding-specific built-in tags. Defined with `color` (hex) + `behavior` and
+  // no `cls`, so TagChip renders them as colored chips with no extra CSS.
+  const WEDDING_TAGS = [
+    { id: "vip",       label: "VIP",         color: "#C2410C", behavior: "front" },
+    { id: "bride",     label: "bride's side", color: "#BE185D", behavior: "cluster" },
+    { id: "groom",     label: "groom's side", color: "#2A6FDB", behavior: "cluster" },
+    { id: "kids",      label: "kids",        color: "#4D7C0F", behavior: "cluster" },
+    { id: "plus-one",  label: "plus one",    color: "#7A5AE0", behavior: "none" },
+    { id: "needs-aisle", label: "needs aisle", color: "#0E7490", behavior: "door" },
+  ];
   function buildWeddingDemo() {
     const rnd = S.mulberry32(42);
     const firsts = ["Sophia","Liam","Noah","Olivia","Ava","Ethan","Mia","Lucas","Emma","Aiden","Ella","Mason","Harper","Logan","Aria","James","Layla","Jackson","Chloe","Sebastian"];
@@ -32,9 +42,13 @@
       const fn = firsts[Math.floor(rnd() * firsts.length)];
       const ln = lasts[Math.floor(rnd() * lasts.length)];
       const group = i < 60 ? "bride" : "groom";
+      // Tag each guest with their side so the cluster behavior keeps sides apart.
+      const tags = [group];
+      if (rnd() < 0.07) tags.push("vip");
+      if (rnd() < 0.10) tags.push("kids");
       out.push({
         id: "w" + i, first: fn, last: ln, name: fn + " " + ln,
-        group, grade: group, class: "", teacher: "", tags: [], notes: "",
+        group, grade: group, class: "", teacher: "", tags, notes: "",
       });
     }
     return out;
@@ -68,6 +82,14 @@
     { id: "speaker",  label: "Speaker",  color: "oklch(58% 0.16 290)" },
     { id: "attendee", label: "Attendee", color: "oklch(62% 0.13 195)" },
   ];
+  // Conference-specific built-in tags (color + behavior, no `cls`).
+  const CONFERENCE_TAGS = [
+    { id: "frontrow", label: "front row",     color: "#7A5AE0", behavior: "front" },
+    { id: "sponsor",  label: "sponsor",       color: "#C2410C", behavior: "cluster" },
+    { id: "press",    label: "press",         color: "#0E7490", behavior: "door" },
+    { id: "dietary",  label: "dietary needs", color: "#1F8A5B", behavior: "cluster" },
+    { id: "workshop", label: "workshop",      color: "#2A6FDB", behavior: "none" },
+  ];
   function buildConferenceDemo() {
     const rnd = S.mulberry32(7);
     const firsts = ["Alex","Sam","Jordan","Taylor","Riley","Casey","Morgan","Avery","Quinn","Reese","Cameron","Drew","Skyler","Devon","Sage"];
@@ -81,8 +103,8 @@
         id: "c" + i, first: fn, last: ln, name: fn + " " + ln,
         group: speaker ? "speaker" : "attendee", grade: speaker ? "speaker" : "attendee",
         class: "", teacher: "",
-        // speakers prefer the front of the room — showcases the "front" tag behavior
-        tags: speaker ? ["front"] : [],
+        // speakers prefer the front of the room — showcases the front-row tag behavior
+        tags: speaker ? ["frontrow"] : [],
         notes: "",
       });
     }
@@ -111,6 +133,7 @@
       groupNoun: "Grade", groups: SCHOOL_GROUPS,
       fields: { class: true, teacher: true },
       blurb: "Students grouped by grade, with class & teacher.",
+      tags: S.TAGS_POOL,
       buildTables: () => S.buildTables(),
       buildDemo: () => { const students = S.buildSchool(); return { students, rules: S.buildRules(students) }; },
     },
@@ -119,6 +142,7 @@
       groupNoun: "Side", groups: WEDDING_GROUPS,
       fields: { class: false, teacher: false },
       blurb: "Guests grouped by bride's or groom's side.",
+      tags: WEDDING_TAGS,
       buildTables: () => buildWeddingTables(),
       buildDemo: () => ({ students: buildWeddingDemo(), rules: [] }),
     },
@@ -127,6 +151,7 @@
       groupNoun: "Role", groups: CONFERENCE_GROUPS,
       fields: { class: false, teacher: false },
       blurb: "Attendees and speakers; speakers seated up front.",
+      tags: CONFERENCE_TAGS,
       buildTables: () => buildConferenceTables(),
       buildDemo: () => ({ students: buildConferenceDemo(), rules: [] }),
     },

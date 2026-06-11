@@ -139,7 +139,7 @@ function RuleModal({ onClose, onSave, students, defaultKind, defaultA, groupsInd
       }
     >
       <div className="helper" style={{ marginBottom: 14 }}>
-        Rules connect two students. <strong style={{ color: "var(--accent)" }}>Together</strong> places them at the same table.
+        Rules connect two names. <strong style={{ color: "var(--accent)" }}>Together</strong> places them at the same table.
         <strong style={{ color: "var(--danger)" }}> Apart</strong> keeps them at different tables.
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
@@ -152,16 +152,16 @@ function RuleModal({ onClose, onSave, students, defaultKind, defaultA, groupsInd
       </div>
       <div className="field-grid">
         <div className="field">
-          <label>Student A</label>
+          <label>Name A</label>
           <select value={a} onChange={(e) => setA(e.target.value)}>
-            <option value="">— pick a student —</option>
+            <option value="">— pick a name —</option>
             {sortedStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({grpLabel(s)}{s.class})</option>)}
           </select>
         </div>
         <div className="field">
-          <label>Student B</label>
+          <label>Name B</label>
           <select value={b} onChange={(e) => setB(e.target.value)}>
-            <option value="">— pick a student —</option>
+            <option value="">— pick a name —</option>
             {sortedStudents.filter(s => s.id !== a).map(s => <option key={s.id} value={s.id}>{s.name} ({grpLabel(s)}{s.class})</option>)}
           </select>
         </div>
@@ -446,7 +446,7 @@ function ChartModal({ firstRun, mode, current, onClose, onSubmit }) {
       {warnReset && (
         <div className="chart-warn">
           <Icon.Alert />
-          <span>Changing style will remove the {studentCount} guest{studentCount === 1 ? "" : "s"} and seating already in this chart.</span>
+          <span>Changing style will remove the {studentCount} name{studentCount === 1 ? "" : "s"} and seating already in this chart.</span>
         </div>
       )}
     </Modal>

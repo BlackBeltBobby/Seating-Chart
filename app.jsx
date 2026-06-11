@@ -10,7 +10,9 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 // Hard cap on user-created charts (single source of truth — adjust here).
 const MAX_CHARTS = 3;
 
-const defaultTags = () => JSON.parse(JSON.stringify(window.Seatery.TAGS_POOL));
+// Seed a chart's tag pool from its kind's built-in tags (fall back to school).
+const tagsForKind = (kind) =>
+  JSON.parse(JSON.stringify((window.ChartKinds[kind] && window.ChartKinds[kind].tags) || window.Seatery.TAGS_POOL));
 
 const EMPTY_STATE = {
   students: [], rules: [], tables: [], tags: [],
@@ -126,7 +128,7 @@ function App() {
     const demo = seed === "demo" ? kd.buildDemo() : { students: [], rules: [] };
     const state = {
       students: demo.students, rules: demo.rules,
-      tables: kd.buildTables(), tags: defaultTags(),
+      tables: kd.buildTables(), tags: tagsForKind(kind),
       history: [], monthIndex: 0, assignments: {},
     };
     const id = "ch" + Math.random().toString(36).slice(2, 8);
@@ -163,7 +165,7 @@ function App() {
     const kd = ChartKinds[newKind] || ChartKinds.school;
     const newState = {
       students: [], rules: [],
-      tables: kd.buildTables(), tags: defaultTags(),
+      tables: kd.buildTables(), tags: tagsForKind(newKind),
       history: [], monthIndex: 0, assignments: {},
     };
     const committed = commitLive(charts);

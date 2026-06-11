@@ -18,7 +18,7 @@ function Inspector({
         <div className="insp-empty">
           <div className="icon"><Icon.User /></div>
           <h4>Nothing selected</h4>
-          <p>Click a student or a table on the floor plan to see details, history, and rule conflicts.</p>
+          <p>Click a name or a table on the floor plan to see details, history, and rule conflicts.</p>
         </div>
       </aside>
     );
@@ -71,7 +71,7 @@ function Inspector({
               })}
             </div>
           ) : (
-            <div className="helper">No tags. Edit student to add.</div>
+            <div className="helper">No tags yet — edit to add.</div>
           )}
         </div>
 
@@ -119,7 +119,7 @@ function Inspector({
           <h5>Rules involving {s.first}
             <button onClick={() => onAddRule("together", s.id)}><Icon.Plus />Add</button>
           </h5>
-          {myRules.length === 0 && <div className="helper">No rules. Use ＋ to keep this student near or away from another.</div>}
+          {myRules.length === 0 && <div className="helper">No rules. Use ＋ to keep this name near or away from another.</div>}
           {myRules.map(r => {
             const other = students.find(x => x.id === (r.a === s.id ? r.b : r.a));
             if (!other) return null;
@@ -326,7 +326,7 @@ function Inspector({
 
         <div className="insp-section">
           <h5>Seated students ({ids.length})</h5>
-          {ids.length === 0 && <div className="helper">No one assigned. Drag a student here.</div>}
+          {ids.length === 0 && <div className="helper">No one assigned. Drag a name here.</div>}
           {ids.map(sid => {
             const s = students.find(x => x.id === sid); if (!s) return null;
             return (
