@@ -1,10 +1,13 @@
 function Toolbar({
   monthIndex, onMonth, months,
   onImport, onSolve, onExport, onAddRule,
-  solving, events, currentEventId, onSelectEvent, hasConflicts,
+  solving,
+  charts, activeId, maxCharts,
+  onSelectChart, onNewChart, onChangeStyle, onDeleteChart,
+  hasConflicts,
   onToggleInspector, inspectorOpen,
 }) {
-  const { Icon } = window;
+  const { Icon, ChartKinds } = window;
   const [menuOpen, setMenuOpen] = React.useState(false);
   const menuRef = React.useRef(null);
 
@@ -15,8 +18,10 @@ function Toolbar({
     return () => window.removeEventListener("mousedown", onDoc);
   }, [menuOpen]);
 
-  const list = events || [];
-  const current = list.find(e => e.id === currentEventId) || list[0] || { kindLabel: "Event", name: "" };
+  const list = charts || [];
+  const current = list.find(c => c.id === activeId) || list[0] || { name: "—", kind: "school" };
+  const kindLabel = (k) => (ChartKinds[k] && ChartKinds[k].label) || "Chart";
+  const atCap = list.length >= (maxCharts || Infinity);
 
   return (
     <div className="toolbar">
@@ -29,28 +34,45 @@ function Toolbar({
         <button className="event-switch" onClick={() => setMenuOpen(o => !o)} aria-haspopup="true" aria-expanded={menuOpen}>
           <Icon.School />
           <div>
-            <div className="kind">{current.kindLabel}</div>
+            <div className="kind">{kindLabel(current.kind)}</div>
             <div className="name">{current.name}</div>
           </div>
           <Icon.Chev className="chev" />
         </button>
         {menuOpen && (
           <div className="event-menu" role="menu">
-            {list.map(ev => (
-              <button
-                key={ev.id}
-                className={"event-menu-item" + (ev.id === currentEventId ? " active" : "")}
-                role="menuitemradio"
-                aria-checked={ev.id === currentEventId}
-                onClick={() => { onSelectEvent(ev.id); setMenuOpen(false); }}
-              >
-                <div className="event-menu-text">
-                  <div className="kind">{ev.kindLabel}</div>
-                  <div className="name">{ev.name}</div>
-                </div>
-                {ev.id === currentEventId && <Icon.Check />}
-              </button>
+            {list.map(c => (
+              <div key={c.id} className={"event-menu-item" + (c.id === activeId ? " active" : "")} role="menuitemradio" aria-checked={c.id === activeId}>
+                <button
+                  className="event-menu-main"
+                  onClick={() => { onSelectChart(c.id); setMenuOpen(false); }}
+                >
+                  <div className="event-menu-text">
+                    <div className="kind">{kindLabel(c.kind)}</div>
+                    <div className="name">{c.name}</div>
+                  </div>
+                  {c.id === activeId && <Icon.Check />}
+                </button>
+                <span className="chart-row-actions">
+                  <button className="rule-icon-btn" title="Change style" onClick={() => { onChangeStyle(c.id); setMenuOpen(false); }}>
+                    <Icon.Settings />
+                  </button>
+                  <button className="rule-icon-btn" title="Delete chart" onClick={() => { onDeleteChart(c.id); }}>
+                    <Icon.Trash />
+                  </button>
+                </span>
+              </div>
             ))}
+            <div className="event-menu-divider" />
+            <button
+              className="event-menu-new"
+              disabled={atCap}
+              title={atCap ? `Limit reached (${maxCharts})` : "Create a new chart"}
+              onClick={() => { if (!atCap) { onNewChart(); setMenuOpen(false); } }}
+            >
+              <Icon.Plus />
+              {atCap ? `New chart — limit reached (${maxCharts})` : "New chart"}
+            </button>
           </div>
         )}
       </div>

@@ -2,19 +2,20 @@
    Modals — Import CSV, Add Rule, Export, Add Guest
    ========================================================================== */
 
-function Modal({ title, onClose, children, footer, size }) {
+function Modal({ title, onClose, children, footer, size, dismissible = true }) {
   const { Icon } = window;
   React.useEffect(() => {
+    if (!dismissible) return undefined;
     const fn = (e) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", fn);
     return () => window.removeEventListener("keydown", fn);
-  }, [onClose]);
+  }, [onClose, dismissible]);
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onMouseDown={(e) => dismissible && e.target === e.currentTarget && onClose()}>
       <div className={"modal " + (size === "lg" ? "lg" : "")}>
         <div className="modal-head">
           <h3>{title}</h3>
-          <button className="btn icon ghost" onClick={onClose}><Icon.X /></button>
+          {dismissible && <button className="btn icon ghost" onClick={onClose}><Icon.X /></button>}
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
@@ -23,17 +24,18 @@ function Modal({ title, onClose, children, footer, size }) {
   );
 }
 
-function ImportModal({ onClose, onImport, tags, tagsIndex }) {
+function ImportModal({ onClose, onImport, tags, tagsIndex, groups, groupsIndex, groupNoun }) {
   const { Icon, TagChip } = window;
   const { csvToStudents, SAMPLE_CSV } = window.Seatery;
   const tagIdx = tagsIndex || {};
+  const grpIdx = groupsIndex || {};
   const [csv, setCsv] = React.useState("");
   const [mode, setMode] = React.useState("append"); // append or replace
   const parsed = React.useMemo(() => {
     if (!csv.trim()) return { rows: [], headers: [] };
     return window.Seatery.parseCSV(csv);
   }, [csv]);
-  const previewStudents = React.useMemo(() => csv.trim() ? csvToStudents(csv, tags) : [], [csv, tags]);
+  const previewStudents = React.useMemo(() => csv.trim() ? csvToStudents(csv, tags, groups) : [], [csv, tags, groups]);
 
   return (
     <Modal
@@ -51,7 +53,7 @@ function ImportModal({ onClose, onImport, tags, tagsIndex }) {
       }
     >
       <div className="helper" style={{ marginBottom: 10 }}>
-        Paste CSV or tab-separated data below. Columns: <code style={{ background: "var(--bg-deep)", padding: "1px 5px", borderRadius: 3, fontFamily: "var(--ff-mono)" }}>first, last, grade, class, teacher, tags, notes</code>. Multiple tags use <code style={{ background: "var(--bg-deep)", padding: "1px 5px", borderRadius: 3, fontFamily: "var(--ff-mono)" }}>|</code>.
+        Paste CSV or tab-separated data below. Columns: <code style={{ background: "var(--bg-deep)", padding: "1px 5px", borderRadius: 3, fontFamily: "var(--ff-mono)" }}>first, last, group, class, teacher, tags, notes</code>. The <code style={{ background: "var(--bg-deep)", padding: "1px 5px", borderRadius: 3, fontFamily: "var(--ff-mono)" }}>group</code> column maps to this chart's {groupNoun ? groupNoun.toLowerCase() : "group"}s ({(groups || []).map(g => g.label).join(", ")}); unmatched values fall to the first. Multiple tags use <code style={{ background: "var(--bg-deep)", padding: "1px 5px", borderRadius: 3, fontFamily: "var(--ff-mono)" }}>|</code>.
       </div>
       <textarea
         className="csv"
@@ -86,8 +88,8 @@ function ImportModal({ onClose, onImport, tags, tagsIndex }) {
           <div style={{ maxHeight: 220, overflow: "auto", border: "1px solid var(--line)", borderRadius: 8 }}>
             {previewStudents.slice(0, 12).map(s => (
               <div key={s.id} className="guest-row" style={{ borderBottom: "1px solid var(--line)" }}>
-                <span className={"grade-dot grade-" + (s.grade || "K")}>{s.grade}</span>
-                <span className="name">{s.name} <span className="class">·{s.class}</span></span>
+                <span className="grade-dot" style={{ background: grpIdx[s.group]?.color }}>{grpIdx[s.group]?.label || s.group}</span>
+                <span className="name">{s.name}{s.class ? <span className="class">·{s.class}</span> : null}</span>
                 <span className="meta">
                   {(s.tags || []).map(t => {
                     const def = tagIdx[t]; if (!def) return null;
@@ -108,8 +110,9 @@ function ImportModal({ onClose, onImport, tags, tagsIndex }) {
   );
 }
 
-function RuleModal({ onClose, onSave, students, defaultKind, defaultA }) {
+function RuleModal({ onClose, onSave, students, defaultKind, defaultA, groupsIndex }) {
   const { Icon } = window;
+  const grpIdx = groupsIndex || {};
   const [kind, setKind] = React.useState(defaultKind || "together");
   const [a, setA] = React.useState(defaultA || "");
   const [b, setB] = React.useState("");
@@ -119,6 +122,7 @@ function RuleModal({ onClose, onSave, students, defaultKind, defaultA }) {
     () => students.slice().sort((x, y) => x.name.localeCompare(y.name)),
     [students]
   );
+  const grpLabel = (s) => grpIdx[s.group]?.label || s.group || "";
 
   return (
     <Modal
@@ -151,14 +155,14 @@ function RuleModal({ onClose, onSave, students, defaultKind, defaultA }) {
           <label>Student A</label>
           <select value={a} onChange={(e) => setA(e.target.value)}>
             <option value="">— pick a student —</option>
-            {sortedStudents.map(s => <option key={s.id} value={s.id}>{s.name} (Grade {s.grade}{s.class})</option>)}
+            {sortedStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({grpLabel(s)}{s.class})</option>)}
           </select>
         </div>
         <div className="field">
           <label>Student B</label>
           <select value={b} onChange={(e) => setB(e.target.value)}>
             <option value="">— pick a student —</option>
-            {sortedStudents.filter(s => s.id !== a).map(s => <option key={s.id} value={s.id}>{s.name} (Grade {s.grade}{s.class})</option>)}
+            {sortedStudents.filter(s => s.id !== a).map(s => <option key={s.id} value={s.id}>{s.name} ({grpLabel(s)}{s.class})</option>)}
           </select>
         </div>
         <div className="field full">
@@ -215,12 +219,14 @@ function ExportModal({ onClose, onExportCSV, onPrint, students, monthIndex, mont
   );
 }
 
-function GuestModal({ onClose, onSave, students, editingId, availableTags }) {
+function GuestModal({ onClose, onSave, students, editingId, availableTags, groups, groupNoun, fields }) {
   const tagPool = availableTags || window.Seatery.TAGS_POOL;
+  const grps = (groups && groups.length) ? groups : [{ id: "K", label: "K" }];
+  const flds = fields || { class: false, teacher: false };
   const editing = editingId && students.find(s => s.id === editingId);
   const [first, setFirst] = React.useState(editing?.first || "");
   const [last, setLast] = React.useState(editing?.last || "");
-  const [grade, setGrade] = React.useState(editing?.grade || "K");
+  const [group, setGroup] = React.useState(editing?.group || grps[0].id);
   const [klass, setKlass] = React.useState(editing?.class || "A");
   const [teacher, setTeacher] = React.useState(editing?.teacher || "");
   const [tags, setTags] = React.useState(editing?.tags || []);
@@ -232,33 +238,38 @@ function GuestModal({ onClose, onSave, students, editingId, availableTags }) {
 
   return (
     <Modal
-      title={editing ? "Edit student" : "Add student"}
+      title={editing ? "Edit guest" : "Add guest"}
       onClose={onClose}
       footer={<>
         <button className="btn ghost" onClick={onClose}>Cancel</button>
         <button className="btn primary" disabled={!first.trim() || !last.trim()}
           onClick={() => {
             onSave({ id: editing?.id, first: first.trim(), last: last.trim(),
-              name: `${first.trim()} ${last.trim()}`, grade, class: klass, teacher,
-              tags, gradeIndex: ["K","1","2","3","4"].indexOf(grade), notes });
+              name: `${first.trim()} ${last.trim()}`, group, grade: group,
+              class: flds.class ? klass : "", teacher: flds.teacher ? teacher : "",
+              tags, notes });
             onClose();
-          }}>{editing ? "Save changes" : "Add student"}</button>
+          }}>{editing ? "Save changes" : "Add guest"}</button>
       </>}
     >
       <div className="field-grid">
         <div className="field"><label>First name</label><input value={first} onChange={e => setFirst(e.target.value)} /></div>
         <div className="field"><label>Last name</label><input value={last} onChange={e => setLast(e.target.value)} /></div>
-        <div className="field"><label>Grade</label>
-          <select value={grade} onChange={e => setGrade(e.target.value)}>
-            {["K","1","2","3","4"].map(g => <option key={g}>{g}</option>)}
+        <div className="field"><label>{groupNoun || "Group"}</label>
+          <select value={group} onChange={e => setGroup(e.target.value)}>
+            {grps.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
           </select>
         </div>
-        <div className="field"><label>Class</label>
-          <select value={klass} onChange={e => setKlass(e.target.value)}>
-            <option>A</option><option>B</option>
-          </select>
-        </div>
-        <div className="field full"><label>Teacher</label><input value={teacher} onChange={e => setTeacher(e.target.value)} placeholder="Ms. Reyes" /></div>
+        {flds.class && (
+          <div className="field"><label>Class</label>
+            <select value={klass} onChange={e => setKlass(e.target.value)}>
+              <option>A</option><option>B</option>
+            </select>
+          </div>
+        )}
+        {flds.teacher && (
+          <div className="field full"><label>Teacher</label><input value={teacher} onChange={e => setTeacher(e.target.value)} placeholder="Ms. Reyes" /></div>
+        )}
         <div className="field full">
           <label>Tags</label>
           <div className="tag-grid" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -344,9 +355,108 @@ function TagModal({ onClose, onSave, tags, editingId }) {
   );
 }
 
+// ---------- Create / change-style chart chooser ----------
+function ChartModal({ firstRun, mode, current, onClose, onSubmit }) {
+  const { Icon, ChartKinds, ChartKindOrder } = window;
+  const isChange = mode === "change";
+  const order = ChartKindOrder || Object.keys(ChartKinds);
+
+  const [kind, setKind] = React.useState((current && current.kind) || order[0]);
+  const [name, setName] = React.useState(
+    (current && current.name) || (ChartKinds[(current && current.kind) || order[0]].defaultName)
+  );
+  const [seed, setSeed] = React.useState("sample"); // create-only: "sample" | "empty"
+  const touchedName = React.useRef(isChange); // in change mode, treat name as user-owned
+
+  function pickKind(k) {
+    setKind(k);
+    // Keep the name in sync with the kind default until the user edits it.
+    if (!touchedName.current) setName(ChartKinds[k].defaultName);
+  }
+
+  const studentCount = (current && current.studentCount) || 0;
+  const warnReset = isChange && studentCount > 0;
+
+  function submit() {
+    if (!name.trim()) return;
+    if (isChange) onSubmit({ kind, name: name.trim() });
+    else onSubmit({ kind, name: name.trim(), seed: seed === "sample" ? "demo" : "empty" });
+  }
+
+  return (
+    <Modal
+      title={isChange ? "Change chart style" : (firstRun ? "Create your first chart" : "New chart")}
+      dismissible={!firstRun}
+      onClose={onClose || (() => {})}
+      footer={<>
+        {!firstRun && <button className="btn ghost" onClick={onClose}>Cancel</button>}
+        <button className="btn primary" disabled={!name.trim()} onClick={submit}>
+          {isChange ? "Change style" : "Create chart"}
+        </button>
+      </>}
+    >
+      {firstRun && (
+        <div className="helper" style={{ marginBottom: 14 }}>
+          Welcome to Seatery. Pick a kind of chart to get started — you can create more later.
+        </div>
+      )}
+
+      <label className="chart-modal-label">Style</label>
+      <div className="kind-cards">
+        {order.map(k => {
+          const def = ChartKinds[k];
+          return (
+            <button
+              key={k}
+              type="button"
+              className={"kind-card" + (k === kind ? " active" : "")}
+              onClick={() => pickKind(k)}
+            >
+              <div className="kind-card-title">{def.label}{k === kind && <Icon.Check />}</div>
+              <div className="kind-card-blurb">{def.blurb}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="field full" style={{ marginTop: 16 }}>
+        <label>Name</label>
+        <input
+          value={name}
+          autoFocus
+          onChange={e => { touchedName.current = true; setName(e.target.value); }}
+          placeholder={ChartKinds[kind].defaultName}
+        />
+      </div>
+
+      {!isChange && (
+        <div className="field full" style={{ marginTop: 12 }}>
+          <label>Starting data</label>
+          <div className="seed-toggle">
+            <button type="button" className={"seed-opt" + (seed === "sample" ? " active" : "")} onClick={() => setSeed("sample")}>
+              Load sample data
+            </button>
+            <button type="button" className={"seed-opt" + (seed === "empty" ? " active" : "")} onClick={() => setSeed("empty")}>
+              Start empty
+            </button>
+          </div>
+        </div>
+      )}
+
+      {warnReset && (
+        <div className="chart-warn">
+          <Icon.Alert />
+          <span>Changing style will remove the {studentCount} guest{studentCount === 1 ? "" : "s"} and seating already in this chart.</span>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 window.Modal = Modal;
 window.ImportModal = ImportModal;
 window.RuleModal = RuleModal;
 window.ExportModal = ExportModal;
 window.GuestModal = GuestModal;
 window.TagModal = TagModal;
+window.ChartModal = ChartModal;

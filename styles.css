@@ -1076,3 +1076,89 @@ textarea.csv:focus { border-color: var(--ink-4); }
 }
 .tag-swatch.active { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
 .tag-swatch svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
+
+/* ===== Front-row seating tag ===== */
+.tag-chip.front { background: oklch(95% 0.05 70); color: oklch(45% 0.13 70); border-color: oklch(88% 0.04 70); }
+.tag-list-row .tag-behavior.behavior-front { color: var(--ink-2); }
+
+/* ===== Front / back of room labels ===== */
+.room-front-label, .room-back-label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-4);
+  pointer-events: none;
+}
+
+/* ===== Chart dropdown (charts + new + delete + change-style) ===== */
+.event-menu-item { padding: 0; gap: 0; }
+.event-menu-item:hover { background: transparent; }
+.event-menu-item.active { background: transparent; }
+.event-menu-main {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0; border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--ink);
+}
+.event-menu-main:hover { background: var(--bg-deep); }
+.event-menu-item.active .event-menu-main { background: var(--accent-soft); }
+.chart-row-actions { display: flex; gap: 2px; align-items: center; padding-right: 4px; }
+.event-menu-divider { height: 1px; background: var(--line); margin: 6px 4px; }
+.event-menu-new {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; text-align: left;
+  padding: 8px 10px;
+  border: 0; border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--accent); font-weight: 500;
+}
+.event-menu-new:hover:not(:disabled) { background: var(--accent-soft); }
+.event-menu-new:disabled { color: var(--ink-4); cursor: not-allowed; }
+
+/* ===== Chart / welcome modal ===== */
+.welcome-shell { min-height: 100vh; background: var(--bg); }
+.chart-modal-label {
+  display: block;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-3); font-weight: 600; margin-bottom: 8px;
+}
+.kind-cards { display: flex; flex-direction: column; gap: 8px; }
+.kind-card {
+  text-align: left;
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; background: var(--surface);
+  cursor: pointer;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.kind-card:hover { border-color: var(--ink-3); }
+.kind-card.active { border-color: var(--accent); background: var(--accent-soft); }
+.kind-card-title {
+  font-weight: 600; color: var(--ink);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.kind-card-title svg { color: var(--accent); }
+.kind-card-blurb { font-size: 12px; color: var(--ink-3); }
+.seed-toggle { display: flex; gap: 6px; }
+.seed-opt {
+  flex: 1; padding: 8px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); cursor: pointer;
+  font-size: 13px; color: var(--ink-2);
+}
+.seed-opt.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+.chart-warn {
+  margin-top: 14px;
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 10px 12px; border-radius: 8px;
+  background: var(--danger-soft); color: var(--danger);
+  font-size: 13px; line-height: 1.45;
+}
+.chart-warn svg { flex-shrink: 0; margin-top: 1px; }

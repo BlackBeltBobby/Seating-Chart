@@ -14,6 +14,7 @@ const TAG_BEHAVIORS = [
   { value: "cluster", label: "Cluster together", hint: "Groups people with this tag at the same table." },
   { value: "spread",  label: "Spread apart",     hint: "Places at most one per table when possible." },
   { value: "door",    label: "Seat near door",   hint: "Prefers tables closest to the entrance." },
+  { value: "front",   label: "Seat near front",  hint: "Prefers tables nearest the front (top) of the room." },
   { value: "none",    label: "Informational",    hint: "No effect on auto-arrange." },
 ];
 

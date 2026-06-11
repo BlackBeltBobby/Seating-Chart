@@ -1,11 +1,16 @@
 function Inspector({
   selected, students, tables, rules, assignments, conflicts, history, monthIndex,
   tags, tagsIndex,
+  groups, groupsIndex, groupNoun, fields,
   onClearSelection, onUnseat, onSeat, onAddRule, onDeleteRule, onEditStudent, onDeleteStudent,
   onUpdateTable, onDeleteTable, onDuplicateTable,
 }) {
   const { Icon, TagChip } = window;
   const TAGS_INDEX = tagsIndex || {};
+  const grpIdx = groupsIndex || {};
+  const grps = groups || [];
+  const noun = groupNoun || "Group";
+  const flds = fields || { class: false, teacher: false };
 
   if (!selected) {
     return (
@@ -41,12 +46,16 @@ function Inspector({
       <aside className="inspector">
         <div className="insp-head">
           <div className="name-row">
-            <div className="insp-avatar" style={{ background: `var(--g-${s.grade})` }}>
+            <div className="insp-avatar" style={{ background: grpIdx[s.group]?.color }}>
               {s.first[0]}{s.last[0]}
             </div>
             <div style={{ flex: 1 }}>
               <div className="insp-name">{s.name}</div>
-              <div className="insp-sub">Grade {s.grade} · Class {s.class} · {s.teacher}</div>
+              <div className="insp-sub">
+                {noun} {grpIdx[s.group]?.label || s.group}
+                {flds.class && s.class ? ` · Class ${s.class}` : ""}
+                {flds.teacher && s.teacher ? ` · ${s.teacher}` : ""}
+              </div>
             </div>
             <button className="btn icon ghost" onClick={onClearSelection}><Icon.X /></button>
           </div>
@@ -72,7 +81,7 @@ function Inspector({
             <>
               <dl className="kv">
                 <dt>Table</dt>
-                <dd>Table {placedTable.label} · {placedTable.shape} · {placedTable.seats} seats</dd>
+                <dd>Table {placedTable.label} · {placedTable.shape} · {window.TableGeom.capacity(placedTable)} seats</dd>
                 <dt>Position</dt>
                 <dd>Seat #{(assignments[placedTable.id] || []).indexOf(s.id) + 1}</dd>
               </dl>
@@ -135,7 +144,7 @@ function Inspector({
                   <div className="tablemates">
                     {h.mates.slice(0, 6).map(m => (
                       <span key={m.id} className="mate-chip">
-                        <span className="dot" style={{ background: `var(--g-${m.grade})` }}></span>
+                        <span className="dot" style={{ background: grpIdx[m.group]?.color }}></span>
                         {m.first}
                       </span>
                     ))}
@@ -165,7 +174,6 @@ function Inspector({
     const cap = TableGeom.capacity(t);
     const ids = assignments[t.id] || [];
     const stats = window.Solver.tableStats(t.id, assignments, students);
-    const grades = ["K","1","2","3","4"];
 
     return (
       <aside className="inspector">
@@ -283,22 +291,22 @@ function Inspector({
         </div>
 
         <div className="insp-section">
-          <h5>Grade composition</h5>
+          <h5>{noun} composition</h5>
           <div className="composition-bar">
-            {grades.map(g => {
-              const c = stats.byGrade[g] || 0;
+            {grps.map(g => {
+              const c = stats.byGroup[g.id] || 0;
               if (!c) return null;
-              return <div key={g} className="comp-segment"
-                style={{ background: `var(--g-${g})`, width: `${(c / Math.max(1, ids.length)) * 100}%` }} />;
+              return <div key={g.id} className="comp-segment"
+                style={{ background: g.color, width: `${(c / Math.max(1, ids.length)) * 100}%` }} />;
             })}
           </div>
           <div className="comp-legend">
-            {grades.map(g => {
-              const c = stats.byGrade[g] || 0;
+            {grps.map(g => {
+              const c = stats.byGroup[g.id] || 0;
               if (!c) return null;
-              return <span key={g} className="item">
-                <span className="dot" style={{ background: `var(--g-${g})` }}></span>
-                Grade {g} · {c}
+              return <span key={g.id} className="item">
+                <span className="dot" style={{ background: g.color }}></span>
+                {noun} {g.label} · {c}
               </span>;
             })}
           </div>
@@ -324,7 +332,7 @@ function Inspector({
             return (
               <div key={sid} className="guest-row" style={{ borderBottom: "1px solid var(--line)", padding: "6px 0", cursor: "pointer" }}
                    onClick={() => window.dispatchEvent(new CustomEvent("seatery:select", { detail: { kind: "student", id: s.id } }))}>
-                <span className={"grade-dot grade-" + s.grade}>{s.grade}</span>
+                <span className="grade-dot" style={{ background: grpIdx[s.group]?.color }}>{grpIdx[s.group]?.label || s.group}</span>
                 <span className="name">{s.name}</span>
                 <button className="rule-icon-btn" onClick={(e) => { e.stopPropagation(); onUnseat(s.id); }}>
                   <Icon.X />
