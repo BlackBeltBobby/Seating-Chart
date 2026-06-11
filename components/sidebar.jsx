@@ -118,7 +118,9 @@ function Sidebar({
               </div>
             ))}
             {!filtered.length && <div className="helper" style={{ padding: 20, textAlign: "center" }}>
-              No students match "{searchQuery}"
+              {searchQuery.trim()
+                ? `No names match "${searchQuery}"`
+                : "No names yet — add or import to get started."}
             </div>}
           </div>
         </>
@@ -137,7 +139,7 @@ function Sidebar({
           <div className="side-body">
             {rules.length === 0 && (
               <div className="helper" style={{ padding: 20, textAlign: "center" }}>
-                No rules yet. Rules let you keep certain students together or apart.
+                No rules yet. Rules let you keep certain names together or apart.
               </div>
             )}
             {rules.map(r => {
