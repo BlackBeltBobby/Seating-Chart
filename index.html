@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Seatery — Seating Charts</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles.css" />
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// Babel Standalone loads external `type="text/babel" src=...` files via XHR,
+// which browsers block under the file:// protocol — opening this file directly
+// would otherwise render a silent blank page. Show actionable guidance instead.
+(function () {
+  if (location.protocol !== 'file:') return;
+  document.addEventListener('DOMContentLoaded', function () {
+    var root = document.getElementById('root');
+    if (!root) return;
+    root.innerHTML =
+      '<div style="max-width:560px;margin:14vh auto;padding:28px 32px;font:15px/1.6 ui-sans-serif,system-ui,sans-serif;color:#29261b;background:#faf9f7;border:1px solid #e7e3da;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.12)">' +
+      '<h1 style="margin:0 0 10px;font-size:20px">Run Seatery from a local server</h1>' +
+      '<p style="margin:0 0 14px;color:#57534e">This prototype uses in-browser Babel, which cannot load its <code>.jsx</code> files over <code>file://</code>. Start a small static server from this folder, then open the localhost link:</p>' +
+      '<pre style="margin:0 0 14px;padding:12px 14px;background:#1c1917;color:#f5f5f4;border-radius:8px;overflow:auto;font:13px/1.5 ui-monospace,monospace">python3 -m http.server 8123</pre>' +
+      '<p style="margin:0">Then open <a href="http://localhost:8123/index.html" style="color:#2563eb">http://localhost:8123/index.html</a></p>' +
+      '</div>';
+  });
+})();
+</script>
+
+<script src="data.js"></script>
+<script src="tables.js"></script>
+<script src="solver.js"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="components/icons.jsx"></script>
+<script type="text/babel" src="components/toolbar.jsx"></script>
+<script type="text/babel" src="components/sidebar.jsx"></script>
+<script type="text/babel" src="components/canvas.jsx"></script>
+<script type="text/babel" src="components/inspector.jsx"></script>
+<script type="text/babel" src="components/modals.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+</body>
+</html>
