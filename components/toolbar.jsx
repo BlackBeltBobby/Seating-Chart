@@ -1,10 +1,23 @@
 function Toolbar({
   monthIndex, onMonth, months,
   onImport, onSolve, onExport, onAddRule,
-  solving, eventName, hasConflicts,
+  solving, events, currentEventId, onSelectEvent, hasConflicts,
   onToggleInspector, inspectorOpen,
 }) {
   const { Icon } = window;
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const menuRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onDoc = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    window.addEventListener("mousedown", onDoc);
+    return () => window.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
+
+  const list = events || [];
+  const current = list.find(e => e.id === currentEventId) || list[0] || { kindLabel: "Event", name: "" };
+
   return (
     <div className="toolbar">
       <div className="brand">
@@ -12,14 +25,35 @@ function Toolbar({
         <div className="brand-name">seat<em>ery</em></div>
       </div>
 
-      <button className="event-switch" onClick={() => alert("In full version: switch between events (school, weddings, conferences).")}>
-        <Icon.School />
-        <div>
-          <div className="kind">School cohort</div>
-          <div className="name">{eventName}</div>
-        </div>
-        <Icon.Chev className="chev" />
-      </button>
+      <div className="event-switch-wrap" ref={menuRef}>
+        <button className="event-switch" onClick={() => setMenuOpen(o => !o)} aria-haspopup="true" aria-expanded={menuOpen}>
+          <Icon.School />
+          <div>
+            <div className="kind">{current.kindLabel}</div>
+            <div className="name">{current.name}</div>
+          </div>
+          <Icon.Chev className="chev" />
+        </button>
+        {menuOpen && (
+          <div className="event-menu" role="menu">
+            {list.map(ev => (
+              <button
+                key={ev.id}
+                className={"event-menu-item" + (ev.id === currentEventId ? " active" : "")}
+                role="menuitemradio"
+                aria-checked={ev.id === currentEventId}
+                onClick={() => { onSelectEvent(ev.id); setMenuOpen(false); }}
+              >
+                <div className="event-menu-text">
+                  <div className="kind">{ev.kindLabel}</div>
+                  <div className="name">{ev.name}</div>
+                </div>
+                {ev.id === currentEventId && <Icon.Check />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="month-picker" title="Pick the month">
         <button onClick={() => onMonth(Math.max(0, monthIndex - 1))} aria-label="Prev month"><Icon.ChevLeft /></button>

@@ -1,10 +1,11 @@
 function Inspector({
   selected, students, tables, rules, assignments, conflicts, history, monthIndex,
+  tags, tagsIndex,
   onClearSelection, onUnseat, onSeat, onAddRule, onDeleteRule, onEditStudent, onDeleteStudent,
   onUpdateTable, onDeleteTable, onDuplicateTable,
 }) {
-  const { Icon } = window;
-  const { TAGS_INDEX } = window.Seatery;
+  const { Icon, TagChip } = window;
+  const TAGS_INDEX = tagsIndex || {};
 
   if (!selected) {
     return (
@@ -57,7 +58,7 @@ function Inspector({
             <div className="tag-grid" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {s.tags.map(t => {
                 const def = TAGS_INDEX[t]; if (!def) return null;
-                return <span key={t} className={"tag-chip lg " + def.cls}>{def.label}</span>;
+                return <TagChip key={t} tag={def} lg />;
               })}
             </div>
           ) : (
@@ -306,9 +307,11 @@ function Inspector({
         <div className="insp-section">
           <h5>Highlights</h5>
           <dl className="kv">
-            <dt>Allergy</dt><dd>{stats.allergy}</dd>
-            <dt>Aisle access</dt><dd>{stats.access}</dd>
-            <dt>Helpers</dt><dd>{stats.monitors}</dd>
+            {(tags || []).map(tg => {
+              const c = stats.byTag[tg.id] || 0;
+              if (!c) return null;
+              return <React.Fragment key={tg.id}><dt>{tg.label}</dt><dd>{c}</dd></React.Fragment>;
+            })}
             <dt>Empty seats</dt><dd>{Math.max(0, cap - ids.length)}</dd>
           </dl>
         </div>

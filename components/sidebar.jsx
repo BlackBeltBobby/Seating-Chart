@@ -1,14 +1,15 @@
 function Sidebar({
   students, rules, tables, assignments,
+  tags, tagsIndex,
   selectedId, onSelect,
   searchQuery, setSearchQuery,
   activeTab, setActiveTab,
   onAddRule, onDeleteRule, onAddGuest,
-  onAddTag,
+  onAddTag, onEditTag, onDeleteTag,
   onDragStartStudent,
 }) {
-  const { Icon, TagChip } = window;
-  const { TAGS_POOL } = window.Seatery;
+  const { Icon, TagChip, tagBehaviorLabel } = window;
+  const tagIdx = tagsIndex || {};
 
   // Map studentId -> tableId
   const placedOf = React.useMemo(() => {
@@ -20,7 +21,7 @@ function Sidebar({
   const tabs = [
     { id: "guests", label: "Guests", count: students.length },
     { id: "rules",  label: "Rules",  count: rules.length },
-    { id: "tags",   label: "Tags",   count: TAGS_POOL.length },
+    { id: "tags",   label: "Tags",   count: tags.length },
   ];
 
   // Filter + group students
@@ -101,11 +102,9 @@ function Sidebar({
                     </span>
                     <span className="meta">
                       {(s.tags || []).slice(0, 2).map(t => {
-                        const def = window.Seatery.TAGS_INDEX[t];
+                        const def = tagIdx[t];
                         if (!def) return null;
-                        return <span key={t} className={"tag-chip " + def.cls} title={def.label}>
-                          {def.label.split(" ")[0]}
-                        </span>;
+                        return <TagChip key={t} tag={def} short />;
                       })}
                     </span>
                   </div>
@@ -167,15 +166,27 @@ function Sidebar({
       {activeTab === "tags" && (
         <div className="side-body">
           <div className="tag-block">
-            <h4>Attribute tags</h4>
-            <div className="tag-grid">
-              {TAGS_POOL.map(t => {
+            <div className="tag-block-head">
+              <h4>Tags</h4>
+              <button className="btn sm" onClick={onAddTag}><Icon.Plus />New tag</button>
+            </div>
+            <div className="tag-list">
+              {tags.map(t => {
                 const count = students.filter(s => s.tags?.includes(t.id)).length;
                 return (
-                  <span key={t.id} className={"tag-chip lg " + t.cls}>
-                    {t.label}
-                    <span style={{ opacity: 0.65, fontFamily: "var(--ff-mono)", fontSize: 10, marginLeft: 4 }}>{count}</span>
-                  </span>
+                  <div key={t.id} className="tag-list-row">
+                    <TagChip tag={t} lg />
+                    <span className={"tag-behavior behavior-" + (t.behavior || "none")}>
+                      {tagBehaviorLabel(t.behavior)}
+                    </span>
+                    <span className="tag-count">{count}</span>
+                    {t.custom && (
+                      <span className="tag-row-actions">
+                        <button className="rule-icon-btn" title="Edit tag" onClick={() => onEditTag(t.id)}><Icon.Settings /></button>
+                        <button className="rule-icon-btn" title="Delete tag" onClick={() => onDeleteTag(t.id)}><Icon.Trash /></button>
+                      </span>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -183,17 +194,11 @@ function Sidebar({
           <div className="tag-block">
             <h4>How tags affect seating</h4>
             <div className="helper" style={{ lineHeight: 1.55 }}>
-              <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Nut allergy</strong> — clustered at the same table for safe lunch monitoring.</p>
-              <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Needs aisle</strong> — placed at tables nearest the cafeteria door.</p>
-              <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Lunch helper</strong> — spread one per table when possible.</p>
-              <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Shy / Energetic</strong> — informational; affects manual placement decisions.</p>
+              <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Cluster together</strong> — groups everyone with the tag at the same table.</p>
+              <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Spread apart</strong> — places at most one per table when possible.</p>
+              <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Seat near door</strong> — prefers tables closest to the entrance.</p>
+              <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Informational</strong> — no effect on auto-arrange; helps manual decisions.</p>
             </div>
-          </div>
-          <div className="tag-block">
-            <h4>Custom tags (coming soon)</h4>
-            <button className="btn sm" disabled style={{ opacity: 0.5 }}>
-              <Icon.Plus />New tag
-            </button>
           </div>
         </div>
       )}

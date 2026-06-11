@@ -23,16 +23,17 @@ function Modal({ title, onClose, children, footer, size }) {
   );
 }
 
-function ImportModal({ onClose, onImport }) {
-  const { Icon } = window;
+function ImportModal({ onClose, onImport, tags, tagsIndex }) {
+  const { Icon, TagChip } = window;
   const { csvToStudents, SAMPLE_CSV } = window.Seatery;
+  const tagIdx = tagsIndex || {};
   const [csv, setCsv] = React.useState("");
   const [mode, setMode] = React.useState("append"); // append or replace
   const parsed = React.useMemo(() => {
     if (!csv.trim()) return { rows: [], headers: [] };
     return window.Seatery.parseCSV(csv);
   }, [csv]);
-  const previewStudents = React.useMemo(() => csv.trim() ? csvToStudents(csv) : [], [csv]);
+  const previewStudents = React.useMemo(() => csv.trim() ? csvToStudents(csv, tags) : [], [csv, tags]);
 
   return (
     <Modal
@@ -89,8 +90,8 @@ function ImportModal({ onClose, onImport }) {
                 <span className="name">{s.name} <span className="class">·{s.class}</span></span>
                 <span className="meta">
                   {(s.tags || []).map(t => {
-                    const def = window.Seatery.TAGS_INDEX[t]; if (!def) return null;
-                    return <span key={t} className={"tag-chip " + def.cls}>{def.label.split(" ")[0]}</span>;
+                    const def = tagIdx[t]; if (!def) return null;
+                    return <TagChip key={t} tag={def} short />;
                   })}
                 </span>
               </div>
@@ -214,8 +215,8 @@ function ExportModal({ onClose, onExportCSV, onPrint, students, monthIndex, mont
   );
 }
 
-function GuestModal({ onClose, onSave, students, editingId }) {
-  const { TAGS_POOL } = window.Seatery;
+function GuestModal({ onClose, onSave, students, editingId, availableTags }) {
+  const tagPool = availableTags || window.Seatery.TAGS_POOL;
   const editing = editingId && students.find(s => s.id === editingId);
   const [first, setFirst] = React.useState(editing?.first || "");
   const [last, setLast] = React.useState(editing?.last || "");
@@ -261,21 +262,83 @@ function GuestModal({ onClose, onSave, students, editingId }) {
         <div className="field full">
           <label>Tags</label>
           <div className="tag-grid" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {TAGS_POOL.map(t => (
-              <button key={t.id} type="button"
-                onClick={() => toggleTag(t.id)}
-                style={{
-                  border: tags.includes(t.id) ? "1.5px solid var(--accent)" : "1px solid var(--line)",
-                  background: tags.includes(t.id) ? "var(--accent-soft)" : "var(--surface)",
-                  borderRadius: 999, padding: "3px 10px", fontSize: 12, cursor: "pointer",
-                  color: tags.includes(t.id) ? "var(--accent)" : "var(--ink-2)", fontWeight: 500,
-                }}>
-                {t.label}
+            {tagPool.map(t => {
+              const on = tags.includes(t.id);
+              const accent = t.color || "var(--accent)";
+              return (
+                <button key={t.id} type="button"
+                  onClick={() => toggleTag(t.id)}
+                  style={{
+                    border: on ? "1.5px solid " + accent : "1px solid var(--line)",
+                    background: on ? (t.color ? t.color + "22" : "var(--accent-soft)") : "var(--surface)",
+                    borderRadius: 999, padding: "3px 10px", fontSize: 12, cursor: "pointer",
+                    color: on ? accent : "var(--ink-2)", fontWeight: 500,
+                  }}>
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="field full"><label>Notes</label><input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any extra context…" /></div>
+      </div>
+    </Modal>
+  );
+}
+
+function TagModal({ onClose, onSave, tags, editingId }) {
+  const { Icon, TagChip, TAG_PALETTE, TAG_BEHAVIORS } = window;
+  const editing = editingId && (tags || []).find(t => t.id === editingId);
+  const [label, setLabel] = React.useState(editing?.label || "");
+  const [color, setColor] = React.useState(editing?.color || TAG_PALETTE[0]);
+  const [behavior, setBehavior] = React.useState(editing?.behavior || "none");
+
+  const preview = { id: "preview", label: label.trim() || "New tag", color, behavior };
+  const behaviorHint = (TAG_BEHAVIORS.find(b => b.value === behavior) || {}).hint;
+
+  return (
+    <Modal
+      title={editing ? "Edit tag" : "New tag"}
+      onClose={onClose}
+      footer={<>
+        <button className="btn ghost" onClick={onClose}>Cancel</button>
+        <button className="btn primary" disabled={!label.trim()}
+          onClick={() => {
+            onSave({ id: editing?.id, label: label.trim(), color, behavior });
+            onClose();
+          }}>{editing ? "Save changes" : "Add tag"}</button>
+      </>}
+    >
+      <div className="field-grid">
+        <div className="field full">
+          <label>Label</label>
+          <input value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. VIP, vegetarian, family…" autoFocus />
+        </div>
+        <div className="field full">
+          <label>Color</label>
+          <div className="tag-palette">
+            {TAG_PALETTE.map(c => (
+              <button key={c} type="button"
+                className={"tag-swatch" + (c === color ? " active" : "")}
+                style={{ background: c }}
+                aria-label={c}
+                onClick={() => setColor(c)}>
+                {c === color && <Icon.Check />}
               </button>
             ))}
           </div>
         </div>
-        <div className="field full"><label>Notes</label><input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any extra context…" /></div>
+        <div className="field full">
+          <label>Seating behavior</label>
+          <select value={behavior} onChange={e => setBehavior(e.target.value)}>
+            {TAG_BEHAVIORS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+          </select>
+          {behaviorHint && <div className="helper" style={{ marginTop: 6 }}>{behaviorHint}</div>}
+        </div>
+        <div className="field full">
+          <label>Preview</label>
+          <div><TagChip tag={preview} lg /></div>
+        </div>
       </div>
     </Modal>
   );
@@ -286,3 +349,4 @@ window.ImportModal = ImportModal;
 window.RuleModal = RuleModal;
 window.ExportModal = ExportModal;
 window.GuestModal = GuestModal;
+window.TagModal = TagModal;

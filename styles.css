@@ -998,3 +998,81 @@ textarea.csv:focus { border-color: var(--ink-4); }
 
 /* Tweaks panel — small overrides */
 .tw-panel { font-family: var(--ff-sans) !important; }
+
+/* ===== Event switcher dropdown ===== */
+.event-switch-wrap { position: relative; }
+.event-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 240px;
+  z-index: 50;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-3);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.event-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--ink);
+}
+.event-menu-item:hover { background: var(--bg-deep); }
+.event-menu-item.active { background: var(--accent-soft); }
+.event-menu-item .event-menu-text { flex: 1; min-width: 0; }
+.event-menu-item .kind {
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600;
+}
+.event-menu-item .name { color: var(--ink); font-weight: 500; }
+.event-menu-item svg { color: var(--accent); flex-shrink: 0; }
+
+/* ===== Tags tab ===== */
+.tag-block-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.tag-block-head h4 { margin: 0; }
+.tag-list { display: flex; flex-direction: column; gap: 6px; }
+.tag-list-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0;
+}
+.tag-list-row .tag-behavior {
+  font-size: 11px; color: var(--ink-3); flex: 1;
+}
+.tag-list-row .tag-behavior.behavior-cluster { color: var(--accent); }
+.tag-list-row .tag-behavior.behavior-spread { color: var(--info, var(--ink-2)); }
+.tag-list-row .tag-behavior.behavior-door { color: var(--ink-2); }
+.tag-list-row .tag-count {
+  font-family: var(--ff-mono); font-size: 11px; color: var(--ink-3);
+  min-width: 18px; text-align: right;
+}
+.tag-row-actions { display: flex; gap: 2px; }
+
+/* Custom (user-defined) tag chips render with inline color */
+.tag-chip.custom { border-style: solid; }
+
+/* ===== Tag modal palette ===== */
+.tag-palette { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-swatch {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,.12);
+  cursor: pointer;
+  display: grid; place-items: center;
+  color: #fff;
+  padding: 0;
+}
+.tag-swatch.active { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+.tag-swatch svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }

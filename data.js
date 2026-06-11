@@ -31,12 +31,14 @@
   ];
   const GRADES = ["K","1","2","3","4"];
   const CLASSES = ["A","B"];
+  // behavior drives the solver: cluster (group same-tag together),
+  // spread (one per table), door (seat near the entrance), none (informational).
   const TAGS_POOL = [
-    { id: "allergy",   label: "nut allergy",   cls: "allergy",   weight: 0.06 },
-    { id: "access",    label: "needs aisle",   cls: "access",    weight: 0.04 },
-    { id: "monitor",   label: "lunch helper",  cls: "monitor",   weight: 0.08 },
-    { id: "shy",       label: "shy",           cls: "shy",       weight: 0.12 },
-    { id: "energetic", label: "energetic",     cls: "energetic", weight: 0.14 },
+    { id: "allergy",   label: "nut allergy",   cls: "allergy",   weight: 0.06, behavior: "cluster" },
+    { id: "access",    label: "needs aisle",   cls: "access",    weight: 0.04, behavior: "door" },
+    { id: "monitor",   label: "lunch helper",  cls: "monitor",   weight: 0.08, behavior: "spread" },
+    { id: "shy",       label: "shy",           cls: "shy",       weight: 0.12, behavior: "none" },
+    { id: "energetic", label: "energetic",     cls: "energetic", weight: 0.14, behavior: "none" },
   ];
   const TAGS_INDEX = Object.fromEntries(TAGS_POOL.map(t => [t.id, t]));
 
@@ -178,8 +180,9 @@
     return { headers, rows };
   }
 
-  function csvToStudents(text) {
+  function csvToStudents(text, tagPool) {
     const { rows } = parseCSV(text);
+    const pool = tagPool && tagPool.length ? tagPool : TAGS_POOL;
     const out = [];
     rows.forEach((row, i) => {
       const name = row.name || `${row.first || ""} ${row.last || ""}`.trim();
@@ -189,8 +192,8 @@
       const last = row.last || parts.slice(1).join(" ");
       const grade = (row.grade || "K").toUpperCase().replace("KINDERGARTEN","K");
       const tagsRaw = (row.tags || "").toLowerCase();
-      const tags = TAGS_POOL.filter(t =>
-        tagsRaw.includes(t.id) || tagsRaw.includes(t.label.split(" ")[0])
+      const tags = pool.filter(t =>
+        tagsRaw.includes(t.id.toLowerCase()) || tagsRaw.includes(t.label.split(" ")[0].toLowerCase())
       ).map(t => t.id);
       out.push({
         id: "n" + Date.now().toString(36) + i,
