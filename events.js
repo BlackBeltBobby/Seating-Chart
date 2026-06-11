@@ -1,12 +1,28 @@
 /* ==========================================================================
-   Event registry — selectable seating scenarios (school / wedding / conference)
-   Each event exposes build() -> { students, rules, tables }.
-   Tags are managed separately (per-event) by the app, seeded from defaults.
+   Chart-kind templates — window.ChartKinds, keyed by kind (school/wedding/conference)
+   Each kind exposes:
+     { kind, label, defaultName, groupNoun, groups:[{id,label,color}],
+       fields:{class,teacher}, buildTables() -> tables, buildDemo() -> {students, rules} }
+   Charts store only `kind`; group metadata/colors are resolved from here at render,
+   so they survive reloads without being persisted.
    ========================================================================== */
 (function () {
   const S = window.Seatery;
 
+  // ----- School (classroom) -----
+  const SCHOOL_GROUPS = [
+    { id: "K", label: "K", color: "oklch(70% 0.13 50)" },
+    { id: "1", label: "1", color: "oklch(67% 0.13 130)" },
+    { id: "2", label: "2", color: "oklch(65% 0.13 195)" },
+    { id: "3", label: "3", color: "oklch(62% 0.13 270)" },
+    { id: "4", label: "4", color: "oklch(67% 0.13 340)" },
+  ];
+
   // ----- Wedding demo -----
+  const WEDDING_GROUPS = [
+    { id: "bride", label: "Bride", color: "oklch(62% 0.16 350)" },
+    { id: "groom", label: "Groom", color: "oklch(60% 0.14 250)" },
+  ];
   function buildWeddingDemo() {
     const rnd = S.mulberry32(42);
     const firsts = ["Sophia","Liam","Noah","Olivia","Ava","Ethan","Mia","Lucas","Emma","Aiden","Ella","Mason","Harper","Logan","Aria","James","Layla","Jackson","Chloe","Sebastian"];
@@ -15,15 +31,10 @@
     for (let i = 0; i < 120; i++) {
       const fn = firsts[Math.floor(rnd() * firsts.length)];
       const ln = lasts[Math.floor(rnd() * lasts.length)];
-      const tags = [];
-      if (i < 60) tags.push("bride-side"); else tags.push("groom-side");
-      if (rnd() < 0.2) tags.push("plus-one");
-      if (rnd() < 0.1) tags.push("kids");
-      if (rnd() < 0.07) tags.push("vip");
+      const group = i < 60 ? "bride" : "groom";
       out.push({
         id: "w" + i, first: fn, last: ln, name: fn + " " + ln,
-        grade: ["K","1","2","3","4"][Math.floor(rnd()*5)], gradeIndex: 0,
-        class: tags[0], teacher: "", tags: [], notes: ""
+        group, grade: group, class: "", teacher: "", tags: [], notes: "",
       });
     }
     return out;
@@ -42,7 +53,7 @@
         idx++;
       }
     }
-    // Head table on top
+    // Head table on top (front of the room)
     out.unshift({
       id: "wt-head", label: "Head",
       shape: "rect", width: 320, height: 80,
@@ -53,20 +64,27 @@
   }
 
   // ----- Conference demo -----
+  const CONFERENCE_GROUPS = [
+    { id: "speaker",  label: "Speaker",  color: "oklch(58% 0.16 290)" },
+    { id: "attendee", label: "Attendee", color: "oklch(62% 0.13 195)" },
+  ];
   function buildConferenceDemo() {
     const rnd = S.mulberry32(7);
     const firsts = ["Alex","Sam","Jordan","Taylor","Riley","Casey","Morgan","Avery","Quinn","Reese","Cameron","Drew","Skyler","Devon","Sage"];
     const lasts = ["Tanaka","Kim","Lee","Wang","Chen","Patel","Sharma","Hansen","Nakamura","Reyes","Singh","Walker"];
     const out = [];
     for (let i = 0; i < 200; i++) {
+      const fn = firsts[Math.floor(rnd()*firsts.length)];
+      const ln = lasts[Math.floor(rnd()*lasts.length)];
+      const speaker = rnd() < 0.1;
       out.push({
-        id: "c" + i,
-        first: firsts[Math.floor(rnd()*firsts.length)],
-        last: lasts[Math.floor(rnd()*lasts.length)],
-        name: "", grade: ["K","1","2","3","4"][Math.floor(rnd()*5)],
-        gradeIndex: 0, class: "track", teacher: "", tags: [], notes: ""
+        id: "c" + i, first: fn, last: ln, name: fn + " " + ln,
+        group: speaker ? "speaker" : "attendee", grade: speaker ? "speaker" : "attendee",
+        class: "", teacher: "",
+        // speakers prefer the front of the room — showcases the "front" tag behavior
+        tags: speaker ? ["front"] : [],
+        notes: "",
       });
-      out[out.length - 1].name = out[out.length - 1].first + " " + out[out.length - 1].last;
     }
     return out;
   }
@@ -87,21 +105,32 @@
     return out;
   }
 
-  window.SeateryEvents = [
-    {
-      id: "school", kind: "school", kindLabel: "School cohort",
-      name: "Maple Ridge Elementary",
-      build: () => ({ students: S.buildSchool(), rules: S.buildRules(), tables: S.buildTables() }),
+  window.ChartKinds = {
+    school: {
+      kind: "school", label: "Classroom", defaultName: "New classroom",
+      groupNoun: "Grade", groups: SCHOOL_GROUPS,
+      fields: { class: true, teacher: true },
+      blurb: "Students grouped by grade, with class & teacher.",
+      buildTables: () => S.buildTables(),
+      buildDemo: () => { const students = S.buildSchool(); return { students, rules: S.buildRules(students) }; },
     },
-    {
-      id: "wedding", kind: "wedding", kindLabel: "Wedding",
-      name: "Park & Lin Wedding",
-      build: () => ({ students: buildWeddingDemo(), rules: [], tables: buildWeddingTables() }),
+    wedding: {
+      kind: "wedding", label: "Wedding", defaultName: "New wedding",
+      groupNoun: "Side", groups: WEDDING_GROUPS,
+      fields: { class: false, teacher: false },
+      blurb: "Guests grouped by bride's or groom's side.",
+      buildTables: () => buildWeddingTables(),
+      buildDemo: () => ({ students: buildWeddingDemo(), rules: [] }),
     },
-    {
-      id: "conference", kind: "conference", kindLabel: "Conference",
-      name: "DevSummit 2026",
-      build: () => ({ students: buildConferenceDemo(), rules: [], tables: buildConferenceTables() }),
+    conference: {
+      kind: "conference", label: "Conference", defaultName: "New conference",
+      groupNoun: "Role", groups: CONFERENCE_GROUPS,
+      fields: { class: false, teacher: false },
+      blurb: "Attendees and speakers; speakers seated up front.",
+      buildTables: () => buildConferenceTables(),
+      buildDemo: () => ({ students: buildConferenceDemo(), rules: [] }),
     },
-  ];
+  };
+  // Display order for pickers
+  window.ChartKindOrder = ["school", "wedding", "conference"];
 })();

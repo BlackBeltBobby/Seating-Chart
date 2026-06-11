@@ -32,11 +32,13 @@
   const GRADES = ["K","1","2","3","4"];
   const CLASSES = ["A","B"];
   // behavior drives the solver: cluster (group same-tag together),
-  // spread (one per table), door (seat near the entrance), none (informational).
+  // spread (one per table), door (seat near the entrance),
+  // front (seat near the front/top of the room), none (informational).
   const TAGS_POOL = [
     { id: "allergy",   label: "nut allergy",   cls: "allergy",   weight: 0.06, behavior: "cluster" },
     { id: "access",    label: "needs aisle",   cls: "access",    weight: 0.04, behavior: "door" },
     { id: "monitor",   label: "lunch helper",  cls: "monitor",   weight: 0.08, behavior: "spread" },
+    { id: "front",     label: "needs front row", cls: "front",   weight: 0.05, behavior: "front" },
     { id: "shy",       label: "shy",           cls: "shy",       weight: 0.12, behavior: "none" },
     { id: "energetic", label: "energetic",     cls: "energetic", weight: 0.14, behavior: "none" },
   ];
@@ -71,7 +73,7 @@
             id: "s" + String(id).padStart(3, "0"),
             first: fn, last: ln,
             name: fn + " " + ln,
-            grade: g, gradeIndex: gi,
+            group: g, grade: g, gradeIndex: gi,
             class: c,
             teacher: ["Ms. Reyes","Mr. Park","Mrs. Linden","Mr. Okafor","Ms. Suzuki","Mr. Diallo","Mrs. Brown","Mr. Vance","Ms. Cho","Mr. Holloway"][gi*2 + (c==="B"?1:0)],
             tags,
@@ -180,9 +182,13 @@
     return { headers, rows };
   }
 
-  function csvToStudents(text, tagPool) {
+  // groups: the active chart-kind's [{id,label,color}] list. The CSV's `group`
+  // column (falling back to legacy `grade`) is matched to a group id/label;
+  // unmatched values default to the first group.
+  function csvToStudents(text, tagPool, groups) {
     const { rows } = parseCSV(text);
     const pool = tagPool && tagPool.length ? tagPool : TAGS_POOL;
+    const grps = groups && groups.length ? groups : null;
     const out = [];
     rows.forEach((row, i) => {
       const name = row.name || `${row.first || ""} ${row.last || ""}`.trim();
@@ -190,7 +196,15 @@
       const parts = name.split(/\s+/);
       const first = row.first || parts[0];
       const last = row.last || parts.slice(1).join(" ");
-      const grade = (row.grade || "K").toUpperCase().replace("KINDERGARTEN","K");
+      const cellRaw = (row.group || row.grade || "").trim();
+      let group;
+      if (grps) {
+        const c = cellRaw.toLowerCase();
+        const match = grps.find(g => g.id.toLowerCase() === c || g.label.toLowerCase() === c);
+        group = (match || grps[0]).id;
+      } else {
+        group = (cellRaw || "K").toUpperCase().replace("KINDERGARTEN", "K");
+      }
       const tagsRaw = (row.tags || "").toLowerCase();
       const tags = pool.filter(t =>
         tagsRaw.includes(t.id.toLowerCase()) || tagsRaw.includes(t.label.split(" ")[0].toLowerCase())
@@ -198,8 +212,8 @@
       out.push({
         id: "n" + Date.now().toString(36) + i,
         first, last, name: `${first} ${last}`.trim(),
-        grade, gradeIndex: GRADES.indexOf(grade),
-        class: row.class || row.section || "A",
+        group, grade: group, gradeIndex: GRADES.indexOf(group),
+        class: row.class || row.section || "",
         teacher: row.teacher || "",
         tags,
         notes: row.notes || "",
@@ -209,11 +223,11 @@
   }
 
   function studentsToCSV(students) {
-    const head = ["first","last","grade","class","teacher","tags","notes"];
+    const head = ["first","last","group","class","teacher","tags","notes"];
     const lines = [head.join(",")];
     students.forEach(s => {
       const row = [
-        s.first, s.last, s.grade, s.class, s.teacher || "",
+        s.first, s.last, s.group || s.grade, s.class, s.teacher || "",
         (s.tags || []).join("|"), (s.notes || "").replace(/,/g, ";")
       ];
       lines.push(row.map(c => /[",\n]/.test(c) ? `"${c.replace(/"/g,'""')}"` : c).join(","));
@@ -222,7 +236,7 @@
   }
 
   // Sample paste for the import modal
-  const SAMPLE_CSV = `first,last,grade,class,teacher,tags,notes
+  const SAMPLE_CSV = `first,last,group,class,teacher,tags,notes
 Maya,Patel,2,A,Mrs. Linden,allergy,
 Jasper,Lee,K,B,Mr. Park,monitor,
 Sienna,Brown,4,A,Ms. Cho,access,wheelchair user

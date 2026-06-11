@@ -7,32 +7,46 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "showNames": false
 }/*EDITMODE-END*/;
 
+// Hard cap on user-created charts (single source of truth — adjust here).
+const MAX_CHARTS = 3;
+
 const defaultTags = () => JSON.parse(JSON.stringify(window.Seatery.TAGS_POOL));
+
+const EMPTY_STATE = {
+  students: [], rules: [], tables: [], tags: [],
+  history: [], monthIndex: 0, assignments: {},
+};
 
 function App() {
   const { Seatery, Solver, Toolbar, Sidebar, Canvas, Inspector,
-          ImportModal, RuleModal, ExportModal, GuestModal, TagModal,
-          TweaksPanel, useTweaks, TweakSection, TweakRadio, TweakToggle } = window;
+          ImportModal, RuleModal, ExportModal, GuestModal, TagModal, ChartModal,
+          ChartKinds, TweaksPanel, useTweaks, TweakSection, TweakRadio, TweakToggle } = window;
 
   // ----- Tweaks -----
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
 
-  // ----- Event selection -----
-  const [eventId, setEventId] = React.useState("school");
-  // Snapshots of each event's working state, so switching back restores it.
-  const eventStatesRef = React.useRef({});
+  // ----- Chart registry (persisted through the Store seam) -----
+  const bootRef = React.useRef(window.Store.loadAll());
+  const boot = bootRef.current;
+  const bootCharts = (boot && boot.charts) || [];
+  const bootActiveId =
+    boot && boot.activeId && bootCharts.some(c => c.id === boot.activeId)
+      ? boot.activeId
+      : (bootCharts[0] && bootCharts[0].id) || null;
+  const bootState = (bootCharts.find(c => c.id === bootActiveId) || {}).state || EMPTY_STATE;
 
-  // ----- Core state -----
-  const [students, setStudents] = React.useState(() => Seatery.studentsAll);
-  const [rules, setRules] = React.useState(() => Seatery.rules);
-  const [tables, setTables] = React.useState(() => Seatery.buildTables());
-  const [tags, setTags] = React.useState(defaultTags);
+  const [charts, setCharts] = React.useState(bootCharts);
+  const [activeId, setActiveId] = React.useState(bootActiveId);
+  const [chartModal, setChartModal] = React.useState(null); // null | {mode:"create"} | {mode:"change", id}
 
-  // assignments per month: { monthIndex: { tableId: [studentIds] } }
-  const [history, setHistory] = React.useState([]);
-  const [monthIndex, setMonthIndex] = React.useState(0);
-  // current month assignments
-  const [assignments, setAssignments] = React.useState({});
+  // ----- Core working state — the live copy of the ACTIVE chart -----
+  const [students, setStudents] = React.useState(() => bootState.students);
+  const [rules, setRules] = React.useState(() => bootState.rules);
+  const [tables, setTables] = React.useState(() => bootState.tables);
+  const [tags, setTags] = React.useState(() => bootState.tags);
+  const [history, setHistory] = React.useState(() => bootState.history);
+  const [monthIndex, setMonthIndex] = React.useState(() => bootState.monthIndex || 0);
+  const [assignments, setAssignments] = React.useState(() => bootState.assignments || {});
 
   const [selected, setSelected] = React.useState(null);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -48,6 +62,17 @@ function App() {
   const [ruleModal, setRuleModal] = React.useState(null); // null | {kind, defaultA}
   const [guestModal, setGuestModal] = React.useState(null); // null | {editingId?}
   const [tagModal, setTagModal] = React.useState(null); // null | {editingId?}
+
+  // ----- Active chart + its kind definition -----
+  const activeChart = charts.find(c => c.id === activeId) || null;
+  const kindDef = (activeChart && ChartKinds[activeChart.kind]) || ChartKinds.school;
+  const groups = kindDef.groups;
+  const groupNoun = kindDef.groupNoun;
+  const fields = kindDef.fields;
+  const groupsIndex = React.useMemo(
+    () => Object.fromEntries(groups.map(g => [g.id, g])),
+    [groups]
+  );
 
   // Quick lookup from tag id -> tag definition
   const tagsIndex = React.useMemo(
@@ -65,35 +90,99 @@ function App() {
   // React to theme tweak
   const themeAttr = t.theme || "chalkboard";
 
-  // ----- Switch event, preserving each event's working state -----
-  const currentEvent = window.SeateryEvents.find(e => e.id === eventId) || window.SeateryEvents[0];
-  function switchEvent(newId) {
-    if (newId === eventId) return;
-    // Snapshot the live state under the current event
-    eventStatesRef.current[eventId] = { students, rules, tables, history, monthIndex, assignments, tags };
-    const saved = eventStatesRef.current[newId];
-    if (saved) {
-      setStudents(saved.students);
-      setRules(saved.rules);
-      setTables(saved.tables);
-      setHistory(saved.history);
-      setMonthIndex(saved.monthIndex);
-      setAssignments(saved.assignments);
-      setTags(saved.tags);
-    } else {
-      const ev = window.SeateryEvents.find(e => e.id === newId);
-      const built = ev.build();
-      setStudents(built.students);
-      setRules(built.rules);
-      setTables(built.tables);
-      setHistory([]);
-      setMonthIndex(0);
-      setAssignments({});
-      setTags(defaultTags());
-    }
-    setEventId(newId);
+  // ----- Chart lifecycle helpers -----
+  const snapshotLive = () => ({ students, rules, tables, tags, history, monthIndex, assignments });
+  // Return `charts` with the active entry refreshed from live working state.
+  function commitLive(list) {
+    if (!activeId) return list;
+    return list.map(c => c.id === activeId ? { ...c, state: snapshotLive() } : c);
+  }
+  function hydrate(state) {
+    setStudents(state.students);
+    setRules(state.rules);
+    setTables(state.tables);
+    setTags(state.tags);
+    setHistory(state.history);
+    setMonthIndex(state.monthIndex || 0);
+    setAssignments(state.assignments || {});
+  }
+
+  function switchChart(id) {
+    if (id === activeId) return;
+    const committed = commitLive(charts);
+    const target = committed.find(c => c.id === id);
+    setCharts(committed);
+    if (target) hydrate(target.state);
+    setActiveId(id);
     setSelected(null);
   }
+
+  function createChart({ kind, name, seed }) {
+    if (charts.length >= MAX_CHARTS) {
+      toast(`Chart limit reached (${MAX_CHARTS}). Delete one to add another.`);
+      return;
+    }
+    const kd = ChartKinds[kind] || ChartKinds.school;
+    const demo = seed === "demo" ? kd.buildDemo() : { students: [], rules: [] };
+    const state = {
+      students: demo.students, rules: demo.rules,
+      tables: kd.buildTables(), tags: defaultTags(),
+      history: [], monthIndex: 0, assignments: {},
+    };
+    const id = "ch" + Math.random().toString(36).slice(2, 8);
+    const committed = commitLive(charts);
+    setCharts([...committed, { id, name: (name && name.trim()) || kd.defaultName, kind, state }]);
+    hydrate(state);
+    setActiveId(id);
+    setChartModal(null);
+    setSelected(null);
+    toast(`Created “${(name && name.trim()) || kd.defaultName}”.`);
+  }
+
+  function deleteChart(id) {
+    const c = charts.find(x => x.id === id);
+    if (!c) return;
+    if (!confirm(`Delete “${c.name}”? This removes its roster and seating.`)) return;
+    const committed = commitLive(charts);
+    const remaining = committed.filter(x => x.id !== id);
+    setCharts(remaining);
+    if (id === activeId) {
+      if (remaining.length) {
+        hydrate(remaining[0].state);
+        setActiveId(remaining[0].id);
+      } else {
+        setActiveId(null); // no charts -> welcome chooser reopens
+      }
+      setSelected(null);
+    }
+  }
+
+  // Change a chart's kind. Resets contents (groups are kind-specific, so a remap
+  // would be lossy); the UI confirms first when the chart is non-empty.
+  function changeKind(id, newKind, newName) {
+    const kd = ChartKinds[newKind] || ChartKinds.school;
+    const newState = {
+      students: [], rules: [],
+      tables: kd.buildTables(), tags: defaultTags(),
+      history: [], monthIndex: 0, assignments: {},
+    };
+    const committed = commitLive(charts);
+    setCharts(committed.map(c =>
+      c.id === id ? { ...c, kind: newKind, name: (newName && newName.trim()) || c.name, state: newState } : c
+    ));
+    if (id === activeId) hydrate(newState);
+    setChartModal(null);
+    setSelected(null);
+    toast(`Style changed to ${kd.label}.`);
+  }
+
+  // ----- Persist (debounced) through the Store seam -----
+  React.useEffect(() => {
+    const payload = activeId ? { charts: commitLive(charts), activeId } : { charts, activeId: null };
+    const h = setTimeout(() => window.Store.save(payload), 500);
+    return () => clearTimeout(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [charts, activeId, students, rules, tables, tags, history, monthIndex, assignments]);
 
   // Conflicts (live audit)
   const conflicts = React.useMemo(
@@ -122,7 +211,7 @@ function App() {
       setSolving(false);
       if (!silent) {
         const c = result.conflicts.length;
-        toast(c ? `Arranged with ${c} fallback placement${c>1?"s":""}.` : `Arranged ${students.length} students across ${tables.length} tables.`);
+        toast(c ? `Arranged with ${c} fallback placement${c>1?"s":""}.` : `Arranged ${students.length} guests across ${tables.length} tables.`);
       }
     }, 700);
   }
@@ -180,7 +269,7 @@ function App() {
     setTables(prev => prev.map(t => t.id === tableId ? { ...t, ...patch } : t));
   }
   function deleteTable(tableId) {
-    if (!confirm("Delete this table? Students seated here will be unseated.")) return;
+    if (!confirm("Delete this table? Guests seated here will be unseated.")) return;
     setTables(prev => prev.filter(t => t.id !== tableId));
     setAssignments(prev => { const n = { ...prev }; delete n[tableId]; return n; });
     if (selected?.kind === "table" && selected.id === tableId) setSelected(null);
@@ -199,7 +288,6 @@ function App() {
     toast(`Table ${t.label} duplicated.`);
   }
   function addTable(kind) {
-    const stageEl = document.querySelector(".stage");
     const t = window.TableGeom.defaultTable(kind, {
       label: String.fromCharCode(65 + tables.length % 26),
       x: 360 + (tables.length % 4) * 60,
@@ -228,7 +316,7 @@ function App() {
     } else {
       setStudents(prev => [...prev, ...newStudents]);
     }
-    toast(`Imported ${newStudents.length} student${newStudents.length === 1 ? "" : "s"}.`);
+    toast(`Imported ${newStudents.length} guest${newStudents.length === 1 ? "" : "s"}.`);
   }
 
   function saveGuest(g) {
@@ -240,7 +328,7 @@ function App() {
     });
   }
   function deleteStudent(id) {
-    if (!confirm("Remove this student from the roster?")) return;
+    if (!confirm("Remove this guest from the roster?")) return;
     setStudents(prev => prev.filter(s => s.id !== id));
     setRules(prev => prev.filter(r => r.a !== id && r.b !== id));
     unseat(id);
@@ -267,23 +355,33 @@ function App() {
   function exportCSV() {
     const placedOf = {};
     Object.entries(assignments).forEach(([tid, arr]) => arr.forEach(id => placedOf[id] = tid));
-    const head = ["first","last","grade","class","teacher","tags","table","seat","notes"];
+    const head = ["first","last","group","class","teacher","tags","table","seat","notes"];
     const lines = [head.join(",")];
     students.forEach(s => {
       const tid = placedOf[s.id];
       const t = tables.find(x => x.id === tid);
       const seatNo = tid ? (assignments[tid].indexOf(s.id) + 1) : "";
-      const row = [s.first, s.last, s.grade, s.class, s.teacher || "",
+      const row = [s.first, s.last, s.group || s.grade, s.class, s.teacher || "",
         (s.tags || []).join("|"), t ? t.label : "", seatNo, (s.notes || "").replace(/,/g, ";")];
       lines.push(row.map(c => /[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g,'""')}"` : c).join(","));
     });
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `seatery-${Seatery.MONTHS[monthIndex].replace(/\s/g, "-")}.csv`;
+    const slug = (activeChart ? activeChart.name : "seatery").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    a.href = url; a.download = `${slug}-${Seatery.MONTHS[monthIndex].replace(/\s/g, "-")}.csv`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
     toast("Roster exported.");
+  }
+
+  // ----- First run: no charts yet -> non-dismissible welcome chooser -----
+  if (!activeChart) {
+    return (
+      <div className="app welcome-shell" data-theme={themeAttr}>
+        <ChartModal firstRun mode="create" onSubmit={createChart} />
+      </div>
+    );
   }
 
   // ----- Render -----
@@ -299,9 +397,13 @@ function App() {
           onExport={() => setExportOpen(true)}
           onAddRule={() => setRuleModal({ kind: "together" })}
           solving={solving}
-          events={window.SeateryEvents}
-          currentEventId={eventId}
-          onSelectEvent={switchEvent}
+          charts={charts}
+          activeId={activeId}
+          maxCharts={MAX_CHARTS}
+          onSelectChart={switchChart}
+          onNewChart={() => setChartModal({ mode: "create" })}
+          onChangeStyle={(id) => setChartModal({ mode: "change", id })}
+          onDeleteChart={deleteChart}
           hasConflicts={conflicts.length}
           onToggleInspector={() => setInspectorOpen(v => !v)}
           inspectorOpen={inspectorOpen}
@@ -314,6 +416,9 @@ function App() {
           assignments={assignments}
           tags={tags}
           tagsIndex={tagsIndex}
+          groups={groups}
+          groupsIndex={groupsIndex}
+          groupNoun={groupNoun}
           selectedId={selected?.kind === "student" ? selected.id : null}
           onSelect={setSelected}
           searchQuery={searchQuery}
@@ -334,6 +439,7 @@ function App() {
           students={students}
           assignments={assignments}
           conflicts={conflicts}
+          groupsIndex={groupsIndex}
           selected={selected}
           onSelect={setSelected}
           onMoveStudent={moveStudentToTable}
@@ -357,6 +463,10 @@ function App() {
             monthIndex={monthIndex}
             tags={tags}
             tagsIndex={tagsIndex}
+            groups={groups}
+            groupsIndex={groupsIndex}
+            groupNoun={groupNoun}
+            fields={fields}
             onClearSelection={() => setSelected(null)}
             onUnseat={unseat}
             onAddRule={(kind, defaultA) => setRuleModal({ kind, defaultA })}
@@ -371,16 +481,33 @@ function App() {
       </div>
 
       {importOpen && <ImportModal onClose={() => setImportOpen(false)} onImport={importStudents}
-        tags={tags} tagsIndex={tagsIndex} />}
+        tags={tags} tagsIndex={tagsIndex} groups={groups} groupsIndex={groupsIndex} groupNoun={groupNoun} />}
       {exportOpen && <ExportModal onClose={() => setExportOpen(false)} onExportCSV={exportCSV}
         onPrint={() => window.print()} students={students} monthIndex={monthIndex}
         months={Seatery.MONTHS} assignments={assignments} tables={tables} />}
       {ruleModal && <RuleModal onClose={() => setRuleModal(null)} onSave={addRule}
-        students={students} defaultKind={ruleModal.kind} defaultA={ruleModal.defaultA} />}
+        students={students} defaultKind={ruleModal.kind} defaultA={ruleModal.defaultA}
+        groups={groups} groupsIndex={groupsIndex} />}
       {guestModal && <GuestModal onClose={() => setGuestModal(null)} onSave={saveGuest}
-        students={students} editingId={guestModal.editingId} availableTags={tags} />}
+        students={students} editingId={guestModal.editingId} availableTags={tags}
+        groups={groups} groupNoun={groupNoun} fields={fields} />}
       {tagModal && <TagModal onClose={() => setTagModal(null)} onSave={saveTag}
         tags={tags} editingId={tagModal.editingId} />}
+
+      {chartModal && (
+        <ChartModal
+          mode={chartModal.mode}
+          current={chartModal.mode === "change"
+            ? (() => { const c = charts.find(x => x.id === chartModal.id);
+                       return c ? { kind: c.kind, name: c.name, studentCount: (c.state.students || []).length } : null; })()
+            : null}
+          onClose={() => setChartModal(null)}
+          onSubmit={(payload) => {
+            if (chartModal.mode === "change") changeKind(chartModal.id, payload.kind, payload.name);
+            else createChart(payload);
+          }}
+        />
+      )}
 
       <div className="toasts">
         {toasts.map(t => <div key={t.id} className="toast">{t.text}</div>)}

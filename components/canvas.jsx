@@ -8,12 +8,14 @@
 
 function Canvas({
   room, tables, students, assignments, conflicts,
+  groupsIndex,
   selected, onSelect,
   onMoveStudent, onMoveTable, onRotateTable, onAddTable,
   showNames, setShowNames,
   solving,
 }) {
   const { Icon, TableGeom } = window;
+  const grpIdx = groupsIndex || {};
   const [zoom, setZoom] = React.useState(0.75);
   const [pan, setPan] = React.useState({ x: 60, y: 24 });
   const panStateRef = React.useRef(null);
@@ -222,6 +224,9 @@ function Canvas({
           <div className="room" style={{ width: room.w, height: room.h }}>
             <div className="room-label" style={{ top: -14, left: 16 }}>{room.label}</div>
 
+            <div className="room-front-label" style={{ top: 8, left: room.w / 2 }}>Front of room</div>
+            <div className="room-back-label" style={{ top: room.h - 24, left: room.w / 2 }}>Back of room</div>
+
             {room.stage && (
               <div className="room-stage" style={{
                 left: room.stage.x, top: room.stage.y,
@@ -247,6 +252,7 @@ function Canvas({
                 table={t}
                 assignments={assignments}
                 studentMap={studentMap}
+                groupsIndex={grpIdx}
                 flagsCount={tableFlagCount[t.id] || 0}
                 flaggedSeats={flaggedSeats}
                 selected={selected}
@@ -283,12 +289,13 @@ function Canvas({
 
 // ---------- One table: outline + seats + rotate handle ----------
 function TableNode({
-  table, assignments, studentMap, flagsCount, flaggedSeats,
+  table, assignments, studentMap, groupsIndex, flagsCount, flaggedSeats,
   selected, isOver,
   onSelect, onMouseDown, onRotateMouseDown, onSeatDragStart,
   onDragOver, onDragLeave, onDrop,
 }) {
   const { TableGeom } = window;
+  const grpIdx = groupsIndex || {};
   const { w, h } = TableGeom.size(table);
   const seats = TableGeom.seatsLocal(table);
   const seatedIds = assignments[table.id] || [];
@@ -343,20 +350,21 @@ function TableNode({
         const stu = sid ? studentMap[sid] : null;
         const flagged = stu && flaggedSeats.has(stu.id);
         const isSeatSel = selected?.kind === "student" && selected.id === stu?.id;
+        const grpColor = stu ? grpIdx[stu.group]?.color : undefined;
         return (
           <div
             key={i}
             className={
               "seat " +
-              (stu ? "filled grade-" + stu.grade : "empty") +
+              (stu ? "filled" : "empty") +
               (flagged ? " flagged" : "") +
               (isSeatSel ? " selected" : "")
             }
             style={{
               left: sx, top: sy,
-              background: stu ? `var(--g-${stu.grade})` : undefined,
+              background: grpColor,
               color: stu ? "white" : undefined,
-              borderColor: stu ? `var(--g-${stu.grade})` : undefined,
+              borderColor: grpColor,
             }}
             draggable={!!stu}
             onDragStart={(e) => stu && onSeatDragStart(e, stu)}

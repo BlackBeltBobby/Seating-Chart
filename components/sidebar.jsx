@@ -1,6 +1,7 @@
 function Sidebar({
   students, rules, tables, assignments,
   tags, tagsIndex,
+  groups, groupsIndex, groupNoun,
   selectedId, onSelect,
   searchQuery, setSearchQuery,
   activeTab, setActiveTab,
@@ -10,6 +11,9 @@ function Sidebar({
 }) {
   const { Icon, TagChip, tagBehaviorLabel } = window;
   const tagIdx = tagsIndex || {};
+  const grpIdx = groupsIndex || {};
+  const grps = groups || [];
+  const noun = groupNoun || "Group";
 
   // Map studentId -> tableId
   const placedOf = React.useMemo(() => {
@@ -27,19 +31,21 @@ function Sidebar({
   // Filter + group students
   const filtered = React.useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return students.filter(s =>
-      !q ||
-      s.name.toLowerCase().includes(q) ||
-      `grade ${s.grade}`.includes(q) ||
-      (s.tags || []).join(" ").includes(q) ||
-      (s.teacher || "").toLowerCase().includes(q)
-    );
-  }, [students, searchQuery]);
+    return students.filter(s => {
+      if (!q) return true;
+      const groupLabel = (grpIdx[s.group]?.label || s.group || "").toLowerCase();
+      return s.name.toLowerCase().includes(q) ||
+        `${noun} ${groupLabel}`.toLowerCase().includes(q) ||
+        groupLabel.includes(q) ||
+        (s.tags || []).join(" ").includes(q) ||
+        (s.teacher || "").toLowerCase().includes(q);
+    });
+  }, [students, searchQuery, grpIdx, noun]);
 
   const grouped = React.useMemo(() => {
     const g = {};
     filtered.forEach(s => {
-      const k = s.grade;
+      const k = s.group;
       (g[k] = g[k] || []).push(s);
     });
     Object.values(g).forEach(arr => arr.sort((a,b) => a.last.localeCompare(b.last)));
@@ -66,20 +72,20 @@ function Sidebar({
             <div className="search-input">
               <Icon.Search />
               <input
-                placeholder="Search by name, grade, tag…"
+                placeholder={`Search by name, ${noun.toLowerCase()}, tag…`}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)} />
             </div>
             <button className="btn icon" onClick={onAddGuest} title="Add guest"><Icon.Plus /></button>
           </div>
           <div className="side-body">
-            {["K","1","2","3","4"].map(g => grouped[g] && (
-              <div key={g}>
+            {grps.map(g => grouped[g.id] && (
+              <div key={g.id}>
                 <div className="guest-group-head">
-                  <span>Grade {g === "K" ? "K — Kindergarten" : g}</span>
-                  <span>{grouped[g].length}</span>
+                  <span>{noun} {g.label}</span>
+                  <span>{grouped[g.id].length}</span>
                 </div>
-                {grouped[g].map(s => (
+                {grouped[g.id].map(s => (
                   <div
                     key={s.id}
                     className={
@@ -95,10 +101,10 @@ function Sidebar({
                       onDragStartStudent && onDragStartStudent(s.id);
                     }}
                   >
-                    <span className={"grade-dot grade-" + s.grade}>{s.grade}</span>
+                    <span className="grade-dot" style={{ background: grpIdx[s.group]?.color }}>{g.label}</span>
                     <span className="name">
                       {s.name}
-                      <span className="class">·{s.class}</span>
+                      {s.class ? <span className="class">·{s.class}</span> : null}
                     </span>
                     <span className="meta">
                       {(s.tags || []).slice(0, 2).map(t => {
@@ -145,10 +151,10 @@ function Sidebar({
                       <span className={"rule-kind " + r.kind}>
                         {r.kind === "together" ? "Together" : "Apart"}
                       </span>
-                      <span className={"grade-dot grade-" + a.grade} style={{ width: 16, height: 16, fontSize: 9 }}>{a.grade}</span>
+                      <span className="grade-dot" style={{ width: 16, height: 16, fontSize: 9, background: grpIdx[a.group]?.color }}>{grpIdx[a.group]?.label || a.group}</span>
                       <span>{a.name}</span>
                       <span style={{ color: "var(--ink-3)" }}>{r.kind === "together" ? "↔" : "⤬"}</span>
-                      <span className={"grade-dot grade-" + b.grade} style={{ width: 16, height: 16, fontSize: 9 }}>{b.grade}</span>
+                      <span className="grade-dot" style={{ width: 16, height: 16, fontSize: 9, background: grpIdx[b.group]?.color }}>{grpIdx[b.group]?.label || b.group}</span>
                       <span>{b.name}</span>
                     </div>
                     {r.note && <div className="rule-note">{r.note}</div>}
@@ -197,6 +203,7 @@ function Sidebar({
               <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Cluster together</strong> — groups everyone with the tag at the same table.</p>
               <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Spread apart</strong> — places at most one per table when possible.</p>
               <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Seat near door</strong> — prefers tables closest to the entrance.</p>
+              <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Seat near front</strong> — prefers tables nearest the front (top) of the room.</p>
               <p style={{ margin: "0 0 8px" }}><strong style={{color:"var(--ink)"}}>Informational</strong> — no effect on auto-arrange; helps manual decisions.</p>
             </div>
           </div>

@@ -78,13 +78,13 @@
       }
     }
 
-    // Grade-mix preference: reward adding a new grade, penalize duplicates beyond 3
-    const gradeCounts = {};
+    // Group-mix preference: reward adding a new group, penalize duplicates beyond 3
+    const groupCounts = {};
     seated.forEach(sid => {
       const peer = students.find(x => x.id === sid);
-      if (peer) gradeCounts[peer.grade] = (gradeCounts[peer.grade] || 0) + 1;
+      if (peer) groupCounts[peer.group] = (groupCounts[peer.group] || 0) + 1;
     });
-    const myCount = gradeCounts[student.grade] || 0;
+    const myCount = groupCounts[student.group] || 0;
     if (myCount === 0) s += 8;
     else if (myCount === 1) s += 2;
     else if (myCount >= 3) s -= 6 * (myCount - 2);
@@ -105,6 +105,9 @@
         // closer to the door is better
         const d = distFromDoor(table, room);
         s += Math.max(0, 12 - d / 80);
+      } else if (def.behavior === "front") {
+        // closer to the front (top) of the room is better — lower table.y
+        s += Math.max(0, 12 - table.y / 80);
       }
     }
 
@@ -136,10 +139,10 @@
       if (!placedFlag.has(r.a)) { order.push(r.a); placedFlag.add(r.a); }
       if (!placedFlag.has(r.b)) { order.push(r.b); placedFlag.add(r.b); }
     });
-    // Then door-seeking needs (so they get door-side tables)
-    const doorFirst = students.filter(s => !placedFlag.has(s.id) &&
-      (s.tags || []).some(tg => tagIdx[tg]?.behavior === "door"));
-    doorFirst.forEach(s => { order.push(s.id); placedFlag.add(s.id); });
+    // Then position-seeking needs (door / front) so they claim the best tables first
+    const positionFirst = students.filter(s => !placedFlag.has(s.id) &&
+      (s.tags || []).some(tg => tagIdx[tg]?.behavior === "door" || tagIdx[tg]?.behavior === "front"));
+    positionFirst.forEach(s => { order.push(s.id); placedFlag.add(s.id); });
     // Then everyone else, lightly shuffled
     const rest = shuffle(students.filter(s => !placedFlag.has(s.id)), rnd);
     rest.forEach(s => order.push(s.id));
@@ -209,17 +212,17 @@
   // Compute simple table stats
   function tableStats(tableId, assignments, students) {
     const ids = assignments[tableId] || [];
-    const byGrade = {};
+    const byGroup = {};
     const byTag = {};
     ids.forEach(sid => {
       const s = students.find(x => x.id === sid);
       if (!s) return;
-      byGrade[s.grade] = (byGrade[s.grade] || 0) + 1;
+      byGroup[s.group] = (byGroup[s.group] || 0) + 1;
       (s.tags || []).forEach(tg => { byTag[tg] = (byTag[tg] || 0) + 1; });
     });
     return {
       count: ids.length,
-      byGrade,
+      byGroup,
       byTag,
       // Back-compat convenience counts for built-in tags
       monitors: byTag.monitor || 0,
