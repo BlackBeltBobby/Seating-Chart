@@ -15,7 +15,7 @@ const tagsForKind = (kind) =>
   JSON.parse(JSON.stringify((window.ChartKinds[kind] && window.ChartKinds[kind].tags) || window.Seatery.TAGS_POOL));
 
 const EMPTY_STATE = {
-  students: [], rules: [], tables: [], tags: [],
+  students: [], rules: [], tables: [], tags: [], room: null,
   history: [], monthIndex: 0, assignments: {},
 };
 
@@ -49,6 +49,7 @@ function App() {
   const [history, setHistory] = React.useState(() => bootState.history);
   const [monthIndex, setMonthIndex] = React.useState(() => bootState.monthIndex || 0);
   const [assignments, setAssignments] = React.useState(() => bootState.assignments || {});
+  const [room, setRoom] = React.useState(() => bootState.room || Seatery.ROOM);
 
   const [selected, setSelected] = React.useState(null);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -93,7 +94,9 @@ function App() {
   const themeAttr = t.theme || "chalkboard";
 
   // ----- Chart lifecycle helpers -----
-  const snapshotLive = () => ({ students, rules, tables, tags, history, monthIndex, assignments });
+  const snapshotLive = () => ({ students, rules, tables, tags, history, monthIndex, assignments, room });
+  // Reset per-chart view state when entering a different chart, so search/tab don't leak across charts.
+  const resetView = () => { setSelected(null); setSearchQuery(""); setActiveTab("guests"); };
   // Return `charts` with the active entry refreshed from live working state.
   function commitLive(list) {
     if (!activeId) return list;
@@ -107,6 +110,7 @@ function App() {
     setHistory(state.history);
     setMonthIndex(state.monthIndex || 0);
     setAssignments(state.assignments || {});
+    setRoom(state.room || Seatery.ROOM);
   }
 
   function switchChart(id) {
@@ -116,19 +120,28 @@ function App() {
     setCharts(committed);
     if (target) hydrate(target.state);
     setActiveId(id);
-    setSelected(null);
+    resetView();
   }
 
-  function createChart({ kind, name, seed }) {
+  function createChart({ kind, name, seed, roomSize, roomW, roomH, roundCount, rectCount, seatsPerTable, people }) {
     if (charts.length >= MAX_CHARTS) {
       toast(`Chart limit reached (${MAX_CHARTS}). Delete one to add another.`);
       return;
     }
     const kd = ChartKinds[kind] || ChartKinds.school;
-    const demo = seed === "demo" ? kd.buildDemo() : { students: [], rules: [] };
+    // Room from preset or custom dims (already pixels); makeRoom clamps/defaults blanks.
+    const newRoom = roomSize === "custom"
+      ? Seatery.makeRoom({ w: roomW, h: roomH })
+      : Seatery.makeRoom(Seatery.ROOM_PRESETS[roomSize] || Seatery.ROOM_PRESETS.medium);
+    // Blank counts/seats/people fall through to the kind's defaults.
+    const d = kd.defaults || {};
+    const rRound = roundCount != null ? roundCount : d.roundCount;
+    const rRect = rectCount != null ? rectCount : d.rectCount;
+    const demo = seed === "demo" ? kd.buildDemo(people) : { students: [], rules: [] };
+    const builtTables = kd.buildTables({ room: newRoom, roundCount: rRound, rectCount: rRect, seatsPerTable });
     const state = {
       students: demo.students, rules: demo.rules,
-      tables: kd.buildTables(), tags: tagsForKind(kind),
+      tables: builtTables, tags: tagsForKind(kind), room: newRoom,
       history: [], monthIndex: 0, assignments: {},
     };
     const id = "ch" + Math.random().toString(36).slice(2, 8);
@@ -137,8 +150,15 @@ function App() {
     hydrate(state);
     setActiveId(id);
     setChartModal(null);
-    setSelected(null);
+    resetView();
     toast(`Created “${(name && name.trim()) || kd.defaultName}”.`);
+    // Only warn about a shortfall when the user explicitly asked for a count —
+    // defaults are best-effort and fit silently.
+    const explicit = roundCount != null || rectCount != null;
+    const requested = (rRound || 0) + (rRect || 0);
+    if (explicit && builtTables.length < requested) {
+      toast(`Room fit ${builtTables.length} of ${requested} tables — enlarge the room or reduce tables.`);
+    }
   }
 
   function deleteChart(id) {
@@ -155,7 +175,7 @@ function App() {
       } else {
         setActiveId(null); // no charts -> welcome chooser reopens
       }
-      setSelected(null);
+      resetView();
     }
   }
 
@@ -163,18 +183,21 @@ function App() {
   // would be lossy); the UI confirms first when the chart is non-empty.
   function changeKind(id, newKind, newName) {
     const kd = ChartKinds[newKind] || ChartKinds.school;
+    const committed = commitLive(charts);
+    // Keep the chart's room across a style change; fit the new tables to it.
+    const prev = committed.find(c => c.id === id);
+    const keepRoom = (prev && prev.state && prev.state.room) || Seatery.ROOM;
     const newState = {
       students: [], rules: [],
-      tables: kd.buildTables(), tags: tagsForKind(newKind),
+      tables: kd.buildTables({ room: keepRoom }), tags: tagsForKind(newKind), room: keepRoom,
       history: [], monthIndex: 0, assignments: {},
     };
-    const committed = commitLive(charts);
     setCharts(committed.map(c =>
       c.id === id ? { ...c, kind: newKind, name: (newName && newName.trim()) || c.name, state: newState } : c
     ));
     if (id === activeId) hydrate(newState);
     setChartModal(null);
-    setSelected(null);
+    resetView();
     toast(`Style changed to ${kd.label}.`);
   }
 
@@ -184,7 +207,7 @@ function App() {
     const h = setTimeout(() => window.Store.save(payload), 500);
     return () => clearTimeout(h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [charts, activeId, students, rules, tables, tags, history, monthIndex, assignments]);
+  }, [charts, activeId, students, rules, tables, tags, history, monthIndex, assignments, room]);
 
   // Conflicts (live audit)
   const conflicts = React.useMemo(
@@ -207,7 +230,7 @@ function App() {
         students, tables, rules,
         history: history.slice(0, monthIndex),
         seed: 1000 + monthIndex,
-        tagsIndex,
+        tagsIndex, room,
       });
       setAssignments(result.assignments);
       setSolving(false);
@@ -262,10 +285,26 @@ function App() {
     });
   }
   function moveTable(tableId, x, y) {
-    setTables(prev => prev.map(t => t.id === tableId ? { ...t, x, y } : t));
+    setTables(prev => {
+      const t = prev.find(z => z.id === tableId);
+      if (!t) return prev;
+      const others = prev.filter(z => z.id !== tableId);
+      const placed = window.TableGeom.resolveMove(t, x, y, others, room);
+      return prev.map(z => z.id === tableId ? placed : z);
+    });
   }
   function rotateTable(tableId, deg) {
-    setTables(prev => prev.map(t => t.id === tableId ? { ...t, rotation: deg } : t));
+    setTables(prev => {
+      const t = prev.find(z => z.id === tableId);
+      if (!t) return prev;
+      const others = prev.filter(z => z.id !== tableId);
+      const rotated = window.TableGeom.clampToRoom({ ...t, rotation: deg }, room);
+      // Keep the rotation in place if it fits; otherwise nudge to a free spot.
+      const placed = others.some(o => window.TableGeom.overlaps(rotated, o))
+        ? (window.TableGeom.findFreeSpot({ ...t, rotation: deg }, others, room) || rotated)
+        : rotated;
+      return prev.map(z => z.id === tableId ? placed : z);
+    });
   }
   function updateTable(tableId, patch) {
     setTables(prev => prev.map(t => t.id === tableId ? { ...t, ...patch } : t));
@@ -279,22 +318,24 @@ function App() {
   function duplicateTable(tableId) {
     const t = tables.find(x => x.id === tableId);
     if (!t) return;
-    const copy = {
+    const copy = window.TableGeom.findFreeSpot({
       ...JSON.parse(JSON.stringify(t)),
       id: "t" + Math.random().toString(36).slice(2, 7),
       x: t.x + 60, y: t.y + 60,
       label: t.label + "′",
-    };
+    }, tables, room);
+    if (!copy) { toast("No room for another table — move or remove one first."); return; }
     setTables(prev => [...prev, copy]);
     setSelected({ kind: "table", id: copy.id });
     toast(`Table ${t.label} duplicated.`);
   }
   function addTable(kind) {
-    const t = window.TableGeom.defaultTable(kind, {
+    const t = window.TableGeom.findFreeSpot(window.TableGeom.defaultTable(kind, {
       label: String.fromCharCode(65 + tables.length % 26),
       x: 360 + (tables.length % 4) * 60,
       y: 360 + Math.floor(tables.length / 4) * 60,
-    });
+    }), tables, room);
+    if (!t) { toast("No room for another table — move or remove one first."); return; }
     setTables(prev => [...prev, t]);
     setSelected({ kind: "table", id: t.id });
     toast(`${kind === "head" ? "Head" : kind === "rect" ? "Rectangular" : "Round"} table added.`);
@@ -436,7 +477,8 @@ function App() {
         />
 
         <Canvas
-          room={Seatery.ROOM}
+          room={room}
+          chartName={activeChart ? activeChart.name : ""}
           tables={tables}
           students={students}
           assignments={assignments}

@@ -33,15 +33,17 @@
     { id: "plus-one",  label: "plus one",    color: "#7A5AE0", behavior: "none" },
     { id: "needs-aisle", label: "needs aisle", color: "#0E7490", behavior: "door" },
   ];
-  function buildWeddingDemo() {
+  function buildWeddingDemo(n = 120) {
+    const total = Math.max(0, Math.round(n) || 0);
     const rnd = S.mulberry32(42);
     const firsts = ["Sophia","Liam","Noah","Olivia","Ava","Ethan","Mia","Lucas","Emma","Aiden","Ella","Mason","Harper","Logan","Aria","James","Layla","Jackson","Chloe","Sebastian"];
     const lasts = ["Park","Lin","Chen","Davis","Walker","Reyes","Tanaka","Bhatt","Foster","Cho"];
     const out = [];
-    for (let i = 0; i < 120; i++) {
+    const half = Math.floor(total / 2);
+    for (let i = 0; i < total; i++) {
       const fn = firsts[Math.floor(rnd() * firsts.length)];
       const ln = lasts[Math.floor(rnd() * lasts.length)];
-      const group = i < 60 ? "bride" : "groom";
+      const group = i < half ? "bride" : "groom";
       // Tag each guest with their side so the cluster behavior keeps sides apart.
       const tags = [group];
       if (rnd() < 0.07) tags.push("vip");
@@ -53,30 +55,6 @@
     }
     return out;
   }
-  function buildWeddingTables() {
-    const out = [];
-    const cols = 4, rows = 4;
-    let idx = 1;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        out.push({
-          id: "wt"+idx, label: String(idx),
-          shape: "round", diameter: 130, roundSeats: 8,
-          x: 300 + c * 280, y: 220 + r * 240, rotation: 0
-        });
-        idx++;
-      }
-    }
-    // Head table on top (front of the room)
-    out.unshift({
-      id: "wt-head", label: "Head",
-      shape: "rect", width: 320, height: 80,
-      sides: { top: 0, right: 0, bottom: 6, left: 0 },
-      x: 740, y: 100, rotation: 0
-    });
-    return out;
-  }
-
   // ----- Conference demo -----
   const CONFERENCE_GROUPS = [
     { id: "speaker",  label: "Speaker",  color: "oklch(58% 0.16 290)" },
@@ -90,12 +68,13 @@
     { id: "dietary",  label: "dietary needs", color: "#1F8A5B", behavior: "cluster" },
     { id: "workshop", label: "workshop",      color: "#2A6FDB", behavior: "none" },
   ];
-  function buildConferenceDemo() {
+  function buildConferenceDemo(n = 200) {
+    const total = Math.max(0, Math.round(n) || 0);
     const rnd = S.mulberry32(7);
     const firsts = ["Alex","Sam","Jordan","Taylor","Riley","Casey","Morgan","Avery","Quinn","Reese","Cameron","Drew","Skyler","Devon","Sage"];
     const lasts = ["Tanaka","Kim","Lee","Wang","Chen","Patel","Sharma","Hansen","Nakamura","Reyes","Singh","Walker"];
     const out = [];
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < total; i++) {
       const fn = firsts[Math.floor(rnd()*firsts.length)];
       const ln = lasts[Math.floor(rnd()*lasts.length)];
       const speaker = rnd() < 0.1;
@@ -110,21 +89,20 @@
     }
     return out;
   }
-  function buildConferenceTables() {
-    const out = [];
-    let idx = 1;
-    for (let r = 0; r < 5; r++) {
-      for (let c = 0; c < 5; c++) {
-        out.push({
-          id: "ct"+idx, label: String(idx),
-          shape: "rect", width: 220, height: 90,
-          sides: { top: 4, right: 0, bottom: 4, left: 0 },
-          x: 280 + c * 250, y: 220 + r * 200, rotation: 0,
-        });
-        idx++;
-      }
-    }
-    return out;
+  // Per-kind creation defaults — single source of truth for the creator modal
+  // placeholders, createChart's blank-resolution, and buildTables/buildDemo.
+  const SCHOOL_DEFAULTS     = { roundCount: 0, rectCount: 19, seatsPerTable: 8, people: 150 };
+  const WEDDING_DEFAULTS    = { roundCount: 0, rectCount: 16, seatsPerTable: 8, people: 120 };
+  const CONFERENCE_DEFAULTS = { roundCount: 0, rectCount: 25, seatsPerTable: 8, people: 200 };
+
+  // Build tables for a kind: resolve blank opts from the kind's defaults, then
+  // delegate to the generic grid generator.
+  function tablesFor(d, idPrefix, opts) {
+    const {
+      room = S.ROOM,
+      roundCount = d.roundCount, rectCount = d.rectCount, seatsPerTable = d.seatsPerTable,
+    } = opts || {};
+    return window.TableGeom.buildGrid({ room, roundCount, rectCount, seatsPerTable, idPrefix });
   }
 
   window.ChartKinds = {
@@ -134,8 +112,9 @@
       fields: { class: true, teacher: true },
       blurb: "Students grouped by grade, with class & teacher.",
       tags: S.TAGS_POOL,
-      buildTables: () => S.buildTables(),
-      buildDemo: () => { const students = S.buildSchool(); return { students, rules: S.buildRules(students) }; },
+      defaults: SCHOOL_DEFAULTS,
+      buildTables: (opts = {}) => tablesFor(SCHOOL_DEFAULTS, "t", opts),
+      buildDemo: (count = SCHOOL_DEFAULTS.people) => { const students = S.buildSchool(count); return { students, rules: S.buildRules(students) }; },
     },
     wedding: {
       kind: "wedding", label: "Wedding", defaultName: "New wedding",
@@ -143,8 +122,9 @@
       fields: { class: false, teacher: false },
       blurb: "Guests grouped by bride's or groom's side.",
       tags: WEDDING_TAGS,
-      buildTables: () => buildWeddingTables(),
-      buildDemo: () => ({ students: buildWeddingDemo(), rules: [] }),
+      defaults: WEDDING_DEFAULTS,
+      buildTables: (opts = {}) => tablesFor(WEDDING_DEFAULTS, "wt", opts),
+      buildDemo: (count = WEDDING_DEFAULTS.people) => ({ students: buildWeddingDemo(count), rules: [] }),
     },
     conference: {
       kind: "conference", label: "Conference", defaultName: "New conference",
@@ -152,8 +132,9 @@
       fields: { class: false, teacher: false },
       blurb: "Attendees and speakers; speakers seated up front.",
       tags: CONFERENCE_TAGS,
-      buildTables: () => buildConferenceTables(),
-      buildDemo: () => ({ students: buildConferenceDemo(), rules: [] }),
+      defaults: CONFERENCE_DEFAULTS,
+      buildTables: (opts = {}) => tablesFor(CONFERENCE_DEFAULTS, "ct", opts),
+      buildDemo: (count = CONFERENCE_DEFAULTS.people) => ({ students: buildConferenceDemo(count), rules: [] }),
     },
   };
   // Display order for pickers
