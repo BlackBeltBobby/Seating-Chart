@@ -7,7 +7,7 @@
    ========================================================================== */
 
 function Canvas({
-  room, tables, students, assignments, conflicts,
+  room, chartName, tables, students, assignments, conflicts,
   groupsIndex,
   selected, onSelect,
   onMoveStudent, onMoveTable, onRotateTable, onAddTable,
@@ -222,7 +222,7 @@ function Canvas({
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
         >
           <div className="room" style={{ width: room.w, height: room.h }}>
-            <div className="room-label" style={{ top: -14, left: 16 }}>{room.label}</div>
+            {chartName && <div className="room-label" style={{ top: -14, left: 16 }}>{chartName}</div>}
 
             <div className="room-front-label" style={{ top: 8, left: room.w / 2 }}>Front of room</div>
             <div className="room-back-label" style={{ top: room.h - 24, left: room.w / 2 }}>Back of room</div>

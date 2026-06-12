@@ -124,10 +124,10 @@
     return s;
   }
 
-  function solve({ students, tables, rules, history = [], seed = Date.now(), tagsIndex }) {
+  function solve({ students, tables, rules, history = [], seed = Date.now(), tagsIndex, room }) {
     if (!students.length || !tables.length) return { assignments: {}, conflicts: [] };
     const rnd = window.Seatery.mulberry32(seed);
-    const room = ROOM;
+    room = room || ROOM;
     const tagIdx = tagsIndex || window.Seatery.TAGS_INDEX;
     const pastCounts = pastPairs(history);
 

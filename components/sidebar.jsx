@@ -190,7 +190,7 @@ function Sidebar({
                     <span className="tag-count">{count}</span>
                     {t.custom && (
                       <span className="tag-row-actions">
-                        <button className="rule-icon-btn" title="Edit tag" onClick={() => onEditTag(t.id)}><Icon.Settings /></button>
+                        <button className="rule-icon-btn" title="Edit tag" onClick={() => onEditTag(t.id)}><Icon.Edit /></button>
                         <button className="rule-icon-btn" title="Delete tag" onClick={() => onDeleteTag(t.id)}><Icon.Trash /></button>
                       </span>
                     )}

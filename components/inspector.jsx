@@ -104,10 +104,11 @@ function Inspector({
             <h5 style={{ color: "var(--danger)" }}>Conflicts ({myConflicts.length})</h5>
             {myConflicts.map((c, i) => {
               const other = students.find(x => x.id === (c.a === s.id ? c.b : c.a));
+              if (!other) return null;
               const note = rules.find(r => r.id === c.ruleId)?.note;
               return (
                 <div key={i} style={{ fontSize: 12.5, padding: "6px 0", borderTop: i ? "1px solid var(--line)" : 0 }}>
-                  <strong>{c.kind === "apart" ? "Sitting with" : "Separated from"}</strong> {other?.name}
+                  <strong>{c.kind === "apart" ? "Sitting with" : "Separated from"}</strong> {other.name}
                   {note && <div className="helper">"{note}"</div>}
                 </div>
               );
@@ -158,7 +159,7 @@ function Inspector({
 
         <div className="insp-section">
           <div className="action-row">
-            <button className="btn sm" onClick={() => onEditStudent(s.id)}><Icon.Settings />Edit</button>
+            <button className="btn sm" onClick={() => onEditStudent(s.id)}><Icon.Edit />Edit</button>
             <button className="btn sm" onClick={() => onDeleteStudent(s.id)}><Icon.Trash />Remove</button>
           </div>
         </div>
@@ -239,14 +240,14 @@ function Inspector({
               <div className="field-grid">
                 <div className="field">
                   <label>Width</label>
-                  <input type="number" min="80" max="400" step="10"
+                  <input type="number" min="80" max="520" step="10"
                     value={t.width || 200}
                     onChange={(e) => onUpdateTable(t.id, { width: Math.max(80, +e.target.value || 200) })}
                   />
                 </div>
                 <div className="field">
                   <label>Height</label>
-                  <input type="number" min="60" max="260" step="10"
+                  <input type="number" min="60" max="520" step="10"
                     value={t.height || 110}
                     onChange={(e) => onUpdateTable(t.id, { height: Math.max(60, +e.target.value || 110) })}
                   />

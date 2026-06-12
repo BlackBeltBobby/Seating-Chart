@@ -54,40 +54,55 @@
     }
   }
 
-  function buildSchool() {
+  // Build a roster of `n` students. Default 150 reproduces the original dataset
+  // exactly (5 grades × 2 classes × 15, same PRNG stream); larger counts keep
+  // cycling grade/class blocks, smaller counts are a prefix of the same stream.
+  function buildSchool(n = 150) {
+    const want = Math.max(0, Math.round(n) || 0);
     const rnd = mulberry32(20260513);
     const students = [];
     let id = 1;
-    GRADES.forEach((g, gi) => {
-      CLASSES.forEach((c) => {
-        for (let i = 0; i < 15; i++) {
-          const fn = FIRST_NAMES[Math.floor(rnd() * FIRST_NAMES.length)];
-          const ln = LAST_NAMES[Math.floor(rnd() * LAST_NAMES.length)];
-          const tags = [];
-          TAGS_POOL.forEach(t => { if (rnd() < t.weight) tags.push(t.id); });
-          // Conflict avoidance for tag combos
-          if (tags.includes("shy") && tags.includes("energetic")) {
-            tags.splice(tags.indexOf("energetic"), 1);
-          }
-          students.push({
-            id: "s" + String(id).padStart(3, "0"),
-            first: fn, last: ln,
-            name: fn + " " + ln,
-            group: g, grade: g, gradeIndex: gi,
-            class: c,
-            teacher: ["Ms. Reyes","Mr. Park","Mrs. Linden","Mr. Okafor","Ms. Suzuki","Mr. Diallo","Mrs. Brown","Mr. Vance","Ms. Cho","Mr. Holloway"][gi*2 + (c==="B"?1:0)],
-            tags,
-            notes: "",
-          });
-          id++;
-        }
+    const TEACHERS = ["Ms. Reyes","Mr. Park","Mrs. Linden","Mr. Okafor","Ms. Suzuki","Mr. Diallo","Mrs. Brown","Mr. Vance","Ms. Cho","Mr. Holloway"];
+    function makeOne(g, gi, c) {
+      const fn = FIRST_NAMES[Math.floor(rnd() * FIRST_NAMES.length)];
+      const ln = LAST_NAMES[Math.floor(rnd() * LAST_NAMES.length)];
+      const tags = [];
+      TAGS_POOL.forEach(t => { if (rnd() < t.weight) tags.push(t.id); });
+      // Conflict avoidance for tag combos
+      if (tags.includes("shy") && tags.includes("energetic")) {
+        tags.splice(tags.indexOf("energetic"), 1);
+      }
+      students.push({
+        id: "s" + String(id).padStart(3, "0"),
+        first: fn, last: ln,
+        name: fn + " " + ln,
+        group: g, grade: g, gradeIndex: gi,
+        class: c,
+        teacher: TEACHERS[gi*2 + (c==="B"?1:0)],
+        tags,
+        notes: "",
       });
-    });
+      id++;
+    }
+    outer:
+    for (let round = 0; ; round++) {
+      for (let gi = 0; gi < GRADES.length; gi++) {
+        for (let ci = 0; ci < CLASSES.length; ci++) {
+          for (let i = 0; i < 15; i++) {
+            if (students.length >= want) break outer;
+            makeOne(GRADES[gi], gi, CLASSES[ci]);
+          }
+        }
+      }
+    }
     return students;
   }
 
-  // Seed a handful of pairwise rules referencing actual students by id
+  // Seed a handful of pairwise rules referencing actual students by id.
+  // Filter to rules whose endpoints both exist, so small/custom rosters
+  // don't get dangling constraints.
   function buildRules(students) {
+    const ids = new Set(students.map(s => s.id));
     return [
       { id: "r1", kind: "apart",    a: "s011", b: "s012", note: "Sibling rivalry — split for lunch" },
       { id: "r2", kind: "together", a: "s003", b: "s045", note: "Buddy program partners" },
@@ -95,7 +110,7 @@
       { id: "r4", kind: "together", a: "s068", b: "s072", note: "Speech buddy" },
       { id: "r5", kind: "apart",    a: "s094", b: "s101", note: "Recently fell out" },
       { id: "r6", kind: "together", a: "s117", b: "s133", note: "Reading partners" },
-    ];
+    ].filter(r => ids.has(r.a) && ids.has(r.b));
   }
 
   // Initial table layout — mixed cafeteria with round tables + a head/staff table
@@ -112,7 +127,9 @@
         let shape = "round", extra = {};
         if (r === 1 && c === 2) {
           shape = "rect";
-          extra = { width: 220, height: 110, sides: { top: 3, right: 1, bottom: 3, left: 1 } };
+          // no right seat: this rect sits beside another rect (t09) whose left seat
+          // would otherwise overlap it.
+          extra = { width: 220, height: 110, sides: { top: 3, right: 0, bottom: 3, left: 1 } };
         } else if (r === 0 && c === 0) {
           // Staff / monitor head table — only one long side used (theater-style)
           shape = "rect";
@@ -149,6 +166,31 @@
     doors: [{ side: "left", pos: 0.85 }],
     stage: { x: 600, y: 60, w: 280, h: 50, label: "Servery" },
   };
+
+  // Canvas pixels per real-world foot. The creator defaults to feet and converts
+  // with this; e.g. a round 8-top ≈ 130px ≈ 5.4 ft.
+  const PX_PER_FOOT = 24;
+
+  // Preset room sizes offered at chart creation, sized to clean foot dimensions
+  // (small 40×30 ft, medium 60×45 ft, large 80×60 ft). Stored in pixels.
+  const ROOM_PRESETS = {
+    small:  { w: 960,  h: 720 },
+    medium: { w: 1440, h: 1080 },
+    large:  { w: 1920, h: 1440 },
+  };
+
+  // Build a room from partial dims, clamping to sane bounds and supplying
+  // defaults (a left-wall door for door/front tag behaviors; no stage).
+  function makeRoom(opts = {}) {
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    return {
+      w: clamp(Math.round(opts.w) || 1480, 600, 4000),
+      h: clamp(Math.round(opts.h) || 1080, 500, 3000),
+      label: opts.label || "",
+      doors: opts.doors || [{ side: "left", pos: 0.85 }],
+      stage: opts.stage || null,
+    };
+  }
 
   // History buckets — months that have already happened
   const PRIOR_HISTORY = []; // empty initially; user can run solver to fill in
@@ -212,7 +254,7 @@
       out.push({
         id: "n" + Date.now().toString(36) + i,
         first, last, name: `${first} ${last}`.trim(),
-        group, grade: group, gradeIndex: GRADES.indexOf(group),
+        group, grade: group, gradeIndex: grps ? grps.findIndex(g => g.id === group) : GRADES.indexOf(group),
         class: row.class || row.section || "",
         teacher: row.teacher || "",
         tags,
@@ -252,7 +294,7 @@ Theo,Tanaka,3,B,Mr. Vance,energetic|monitor,`;
 
   window.Seatery = {
     GRADES, CLASSES, TAGS_POOL, TAGS_INDEX,
-    ROOM, MONTHS, SAMPLE_CSV,
+    ROOM, ROOM_PRESETS, makeRoom, PX_PER_FOOT, MONTHS, SAMPLE_CSV,
     buildSchool, buildRules, buildTables,
     studentsAll, rules, tables,
     PRIOR_HISTORY,

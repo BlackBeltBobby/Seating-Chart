@@ -55,7 +55,7 @@ function Toolbar({
                 </button>
                 <span className="chart-row-actions">
                   <button className="rule-icon-btn" title="Change style" onClick={() => { onChangeStyle(c.id); setMenuOpen(false); }}>
-                    <Icon.Settings />
+                    <Icon.Edit />
                   </button>
                   <button className="rule-icon-btn" title="Delete chart" onClick={() => { onDeleteChart(c.id); }}>
                     <Icon.Trash />

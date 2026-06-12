@@ -357,9 +357,10 @@ function TagModal({ onClose, onSave, tags, editingId }) {
 
 // ---------- Create / change-style chart chooser ----------
 function ChartModal({ firstRun, mode, current, onClose, onSubmit }) {
-  const { Icon, ChartKinds, ChartKindOrder } = window;
+  const { Icon, ChartKinds, ChartKindOrder, Seatery } = window;
   const isChange = mode === "change";
   const order = ChartKindOrder || Object.keys(ChartKinds);
+  const PX_PER_FOOT = (Seatery && Seatery.PX_PER_FOOT) || 24;
 
   const [kind, setKind] = React.useState((current && current.kind) || order[0]);
   const [name, setName] = React.useState(
@@ -367,6 +368,26 @@ function ChartModal({ firstRun, mode, current, onClose, onSubmit }) {
   );
   const [seed, setSeed] = React.useState("sample"); // create-only: "sample" | "empty"
   const touchedName = React.useRef(isChange); // in change mode, treat name as user-owned
+
+  // Create-only sizing inputs. Numeric fields hold strings ("" = blank); blanks
+  // fall through to the kind's defaults at submit. Defaults are shown as placeholders.
+  const dflt = (ChartKinds[kind] && ChartKinds[kind].defaults) || ChartKinds.school.defaults;
+  const [roomSize, setRoomSize] = React.useState("medium"); // small | medium | large | custom
+  const [unit, setUnit] = React.useState("feet"); // "feet" | "pixels" — interprets custom W/H
+  const [roomW, setRoomW] = React.useState("");
+  const [roomH, setRoomH] = React.useState("");
+  const [roundCount, setRoundCount] = React.useState("");
+  const [rectCount, setRectCount] = React.useState("");
+  const [seatsPer, setSeatsPer] = React.useState("");
+  const [people, setPeople] = React.useState("");
+  const eff = (v, d) => { const n = parseInt(v, 10); return isNaN(n) ? d : n; };
+  // Custom W/H placeholder + the px value a blank would default to, per unit.
+  const dimPlaceholder = unit === "feet"
+    ? { w: String(Math.round(Seatery.ROOM_PRESETS.medium.w / PX_PER_FOOT)), h: String(Math.round(Seatery.ROOM_PRESETS.medium.h / PX_PER_FOOT)) }
+    : { w: String(Seatery.ROOM_PRESETS.medium.w), h: String(Seatery.ROOM_PRESETS.medium.h) };
+  const totalTables = eff(roundCount, dflt.roundCount) + eff(rectCount, dflt.rectCount);
+  const overCapacity = !isChange && seed === "sample" &&
+    eff(people, dflt.people) > totalTables * eff(seatsPer, dflt.seatsPerTable);
 
   function pickKind(k) {
     setKind(k);
@@ -379,8 +400,21 @@ function ChartModal({ firstRun, mode, current, onClose, onSubmit }) {
 
   function submit() {
     if (!name.trim()) return;
-    if (isChange) onSubmit({ kind, name: name.trim() });
-    else onSubmit({ kind, name: name.trim(), seed: seed === "sample" ? "demo" : "empty" });
+    if (isChange) { onSubmit({ kind, name: name.trim() }); return; }
+    // Blank numeric fields -> undefined, so downstream defaults apply.
+    const num = v => { const n = parseInt(v, 10); return isNaN(n) ? undefined : n; };
+    // Custom dims are entered in the chosen unit; convert feet -> px for storage.
+    const toPx = v => { const n = num(v); return n == null ? undefined : (unit === "feet" ? Math.round(n * PX_PER_FOOT) : n); };
+    onSubmit({
+      kind, name: name.trim(),
+      seed: seed === "sample" ? "demo" : "empty",
+      roomSize,
+      roomW: toPx(roomW), roomH: toPx(roomH),
+      roundCount: num(roundCount),
+      rectCount: num(rectCount),
+      seatsPerTable: num(seatsPer),
+      people: seed === "sample" ? num(people) : undefined,
+    });
   }
 
   return (
@@ -440,6 +474,81 @@ function ChartModal({ firstRun, mode, current, onClose, onSubmit }) {
               Start empty
             </button>
           </div>
+        </div>
+      )}
+
+      {!isChange && (
+        <div className="field full" style={{ marginTop: 12 }}>
+          <label>Room size</label>
+          <div className="seed-toggle">
+            {["small", "medium", "large", "custom"].map(s => (
+              <button key={s} type="button"
+                className={"seed-opt" + (roomSize === s ? " active" : "")}
+                onClick={() => setRoomSize(s)}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
+          </div>
+          {roomSize === "custom" && (
+            <>
+              <div className="seed-toggle" style={{ marginTop: 8 }}>
+                {["feet", "pixels"].map(u => (
+                  <button key={u} type="button"
+                    className={"seed-opt" + (unit === u ? " active" : "")}
+                    onClick={() => setUnit(u)}>
+                    {u.charAt(0).toUpperCase() + u.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <div className="field-grid" style={{ marginTop: 8 }}>
+                <div className="field">
+                  <label>Width ({unit === "feet" ? "ft" : "px"})</label>
+                  <input type="number" min={1} placeholder={dimPlaceholder.w}
+                    value={roomW} onChange={e => setRoomW(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label>Height ({unit === "feet" ? "ft" : "px"})</label>
+                  <input type="number" min={1} placeholder={dimPlaceholder.h}
+                    value={roomH} onChange={e => setRoomH(e.target.value)} />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {!isChange && (
+        <div className="field-grid" style={{ marginTop: 12 }}>
+          <div className="field">
+            <label>Round tables</label>
+            <input type="number" min={0} max={60} placeholder={String(dflt.roundCount)}
+              value={roundCount} onChange={e => setRoundCount(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Rectangular tables</label>
+            <input type="number" min={0} max={60} placeholder={String(dflt.rectCount)}
+              value={rectCount} onChange={e => setRectCount(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Seats per table</label>
+            <input type="number" min={1} max={24} placeholder={String(dflt.seatsPerTable)}
+              value={seatsPer} onChange={e => setSeatsPer(e.target.value)} />
+          </div>
+          {seed === "sample" && (
+            <div className="field">
+              <label>Number of people</label>
+              <input type="number" min={0} max={2000} placeholder={String(dflt.people)}
+                value={people} onChange={e => setPeople(e.target.value)} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {overCapacity && (
+        <div className="chart-warn">
+          <Icon.Alert />
+          <span>{eff(people, dflt.people)} people exceed total seat capacity
+            ({totalTables * eff(seatsPer, dflt.seatsPerTable)}). The solver will flag over-capacity placements.</span>
         </div>
       )}
 
